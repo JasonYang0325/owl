@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Context Menu Test Page</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 40px; }
+        #link { display: block; margin: 20px 0; font-size: 18px; }
+        #img { display: block; margin: 20px 0; }
+        #text { margin: 20px 0; font-size: 18px; line-height: 1.6; }
+        #input { display: block; margin: 20px 0; font-size: 16px; padding: 8px; width: 300px; }
+        #blank { height: 200px; background: #eee; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <a id="link" href="https://example.com/target">Test Link for Context Menu</a>
+
+    <!-- 10x10 red PNG, base64 encoded — no network dependency -->
+    <img id="img"
+         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVQYV2P8z8BQz0BFwMgwasCoAgBGWAkFnLmHjgAAAABJRU5ErkJggg=="
+         width="100" height="100"
+         alt="Test Image">
+
+    <p id="text">Selectable text for context menu testing</p>
+
+    <input id="input" type="text" value="editable content">
+
+    <div id="blank" style="height:200px;background:#eee"></div>
+</body>
+</html>

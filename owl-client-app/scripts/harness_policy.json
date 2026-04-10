@@ -1,0 +1,895 @@
+{
+  "version": 2,
+  "profiles": {
+    "ci-core": {
+      "description": "Core non-GUI gate for agent self-loop iteration.",
+      "suites": [
+        "cpp_host",
+        "cpp_client",
+        "swift_unit",
+        "swift_integration",
+        "swift_pipeline"
+      ],
+      "use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering"
+      ],
+      "required_use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering"
+      ],
+      "max_flaky_suites": 0,
+      "required_domains": [
+        "platform-core",
+        "navigation",
+        "input-ime",
+        "find-in-page",
+        "zoom",
+        "bookmarks",
+        "history",
+        "downloads",
+        "permissions",
+        "session-restore",
+        "storage",
+        "console"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 7200,
+        "max_required_final_duration_sec": 5400,
+        "max_suite_final_duration_sec": {
+          "cpp_host": 1800,
+          "swift_unit": 1800,
+          "swift_integration": 2400,
+          "swift_pipeline": 3000
+        }
+      }
+    },
+    "swift-fast": {
+      "description": "Fast Swift-only iteration profile.",
+      "suites": [
+        "swift_unit",
+        "swift_integration",
+        "swift_pipeline"
+      ],
+      "use_cases": [
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering"
+      ],
+      "required_use_cases": [
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering"
+      ],
+      "max_flaky_suites": 0,
+      "required_domains": [
+        "platform-core",
+        "navigation",
+        "input-ime",
+        "find-in-page",
+        "zoom",
+        "bookmarks",
+        "history",
+        "downloads",
+        "permissions",
+        "session-restore",
+        "storage",
+        "console"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 5400,
+        "max_required_final_duration_sec": 4200,
+        "max_suite_final_duration_sec": {
+          "swift_unit": 1800,
+          "swift_integration": 2400,
+          "swift_pipeline": 3000
+        }
+      }
+    },
+    "release-gate": {
+      "description": "Release blocking profile with deterministic core + strict non-skippable CLI/XCUITest smoke paths.",
+      "suites": [
+        "cpp_host",
+        "cpp_client",
+        "swift_unit",
+        "swift_integration",
+        "swift_pipeline",
+        "cli_release",
+        "xcuitest_release"
+      ],
+      "use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering",
+        "release_cli_semantics",
+        "release_xcuitest_shell"
+      ],
+      "required_use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering",
+        "release_cli_semantics",
+        "release_xcuitest_shell"
+      ],
+      "max_flaky_suites": 0,
+      "required_domains": [
+        "platform-core",
+        "navigation",
+        "input-ime",
+        "find-in-page",
+        "zoom",
+        "bookmarks",
+        "history",
+        "downloads",
+        "permissions",
+        "session-restore",
+        "storage",
+        "console",
+        "cli",
+        "xcuitest"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 10800,
+        "max_required_final_duration_sec": 7200,
+        "max_suite_final_duration_sec": {
+          "cpp_host": 1800,
+          "cpp_client": 2400,
+          "swift_unit": 1800,
+          "swift_integration": 2400,
+          "swift_pipeline": 3000,
+          "cli_release": 3600,
+          "xcuitest_release": 7200
+        }
+      }
+    },
+    "release-nightly": {
+      "description": "Nightly profile with extended script-driven suites (cli/xcuitest/dual-e2e).",
+      "suites": [
+        "cpp_host",
+        "cpp_client",
+        "swift_unit",
+        "swift_integration",
+        "swift_pipeline",
+        "cli_nightly",
+        "xcuitest_nightly",
+        "dual_e2e_nightly"
+      ],
+      "use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering",
+        "nightly_cli_semantics",
+        "nightly_xcuitest_shell",
+        "nightly_dual_driver"
+      ],
+      "required_use_cases": [
+        "cpp_host_smoke",
+        "cpp_client_smoke",
+        "cross_layer_navigation_dom",
+        "cross_layer_navigation_replace_dom",
+        "cross_layer_input_text",
+        "cross_layer_find",
+        "cross_layer_zoom",
+        "cross_layer_bookmark_crud",
+        "cross_layer_permission_roundtrip",
+        "cross_layer_history_back_forward",
+        "pipeline_navigation_basic",
+        "pipeline_input_and_ime",
+        "pipeline_bookmark_crud",
+        "unit_history_journey",
+        "unit_download_journey",
+        "unit_permission_journey",
+        "unit_session_restore",
+        "unit_storage_clear_data",
+        "unit_console_filtering"
+      ],
+      "max_flaky_suites": 0,
+      "required_domains": [
+        "platform-core",
+        "navigation",
+        "input-ime",
+        "find-in-page",
+        "zoom",
+        "bookmarks",
+        "history",
+        "downloads",
+        "permissions",
+        "session-restore",
+        "storage",
+        "console"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 18000,
+        "max_required_final_duration_sec": 7200,
+        "max_suite_final_duration_sec": {
+          "cpp_host": 1800,
+          "swift_unit": 1800,
+          "swift_integration": 2400,
+          "swift_pipeline": 3000,
+          "cli_nightly": 3600,
+          "xcuitest_nightly": 7200,
+          "dual_e2e_nightly": 9000
+        }
+      }
+    }
+  },
+  "suites": {
+    "cpp_host": {
+      "kind": "gtest",
+      "required": true,
+      "timeout_sec": 300,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "build_targets": [
+        "owl_host_unittests"
+      ],
+      "binary": "$BUILD_DIR/owl_host_unittests",
+      "failure_hints": [
+        "Run `autoninja -C out/owl-host owl_host_unittests` and inspect linker/compiler errors.",
+        "If binary runs but tests fail, rerun with `--gtest_filter=<Suite>.<Case>` to isolate."
+      ]
+    },
+    "cpp_client": {
+      "kind": "gtest",
+      "required": true,
+      "timeout_sec": 300,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "build_targets": [
+        "owl_client_unittests"
+      ],
+      "binary": "$BUILD_DIR/owl_client_unittests",
+      "failure_hints": [
+        "Run `autoninja -C out/owl-host owl_client_unittests` and inspect compiler/linker errors.",
+        "If binary runs but tests fail, rerun with `--gtest_filter=<Suite>.<Case>` to isolate."
+      ]
+    },
+    "swift_unit": {
+      "kind": "swift",
+      "required": true,
+      "timeout_sec": 240,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 100,
+      "max_not_run_cases": 0,
+      "filter": "OWLUnitTests",
+      "failure_hints": [
+        "Run `swift test --filter OWLUnitTests` to inspect first failing unit test.",
+        "Do not accept flaky unit tests; keep this suite deterministic."
+      ]
+    },
+    "swift_integration": {
+      "kind": "swift",
+      "required": true,
+      "timeout_sec": 240,
+      "retries": 1,
+      "stability_runs": 2,
+      "min_discovered_cases": 8,
+      "max_not_run_cases": 0,
+      "filter": "OWLIntegrationTests.OWLIntegrationTests",
+      "requires_host_binary": true,
+      "build_targets": [
+        "third_party/owl/bridge:OWLBridge"
+      ],
+      "failure_hints": [
+        "Verify host exists at `out/owl-host/OWL Host.app/.../OWL Host` or `out/owl-host/owl_host`.",
+        "Keep integration cases local/deterministic (data URL or local fixture only)."
+      ]
+    },
+    "swift_pipeline": {
+      "kind": "swift",
+      "required": true,
+      "timeout_sec": 300,
+      "retries": 1,
+      "stability_runs": 2,
+      "min_discovered_cases": 30,
+      "max_not_run_cases": 0,
+      "filter": "OWLBrowserTests.OWLBrowserTests",
+      "requires_host_binary": true,
+      "build_targets": [
+        "third_party/owl/bridge:OWLBridge"
+      ],
+      "failure_hints": [
+        "Do not add external-network dependency to pipeline tests.",
+        "If a case fails once then passes on retry, treat as flake and fix before merging."
+      ]
+    },
+    "cli_nightly": {
+      "kind": "script",
+      "required": false,
+      "timeout_sec": 900,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "fixed_cases": [
+        "NightlyCLI/testRunTestsCli"
+      ],
+      "command": [
+        "$SCRIPT_DIR/run_tests.sh",
+        "cli"
+      ],
+      "treat_skip_as_skipped": true,
+      "skip_patterns": [
+        "SKIP"
+      ],
+      "failure_hints": [
+        "Ensure OWL Browser + OWLCLI preconditions are met before running nightly CLI suite.",
+        "If this suite is frequently skipped, promote deterministic app bootstrap inside the script command."
+      ]
+    },
+    "cli_release": {
+      "kind": "script",
+      "required": true,
+      "timeout_sec": 900,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "fixed_cases": [
+        "ReleaseCLI/testRunTestsCliStrict"
+      ],
+      "command": [
+        "$SCRIPT_DIR/run_tests_strict_release.sh",
+        "cli"
+      ],
+      "failure_hints": [
+        "Release gate requires CLI suite to execute real cases; skipped/0-case runs are hard failures.",
+        "Verify OWLCLI build artifact and browser bootstrap before running release-gate."
+      ]
+    },
+    "xcuitest_nightly": {
+      "kind": "script",
+      "required": false,
+      "timeout_sec": 1800,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "fixed_cases": [
+        "NightlyXCUITest/testRunTestsXCUITest"
+      ],
+      "command": [
+        "$SCRIPT_DIR/run_tests.sh",
+        "xcuitest"
+      ],
+      "treat_skip_as_skipped": true,
+      "skip_patterns": [
+        "SKIP",
+        "no signing identity"
+      ],
+      "failure_hints": [
+        "XCUITest suite requires signing + GUI. Keep this suite optional until infra is guaranteed in nightly runner.",
+        "If compile fails, inspect /tmp/owl_xcuitest_logs/latest_full.log and latest_diagnostic.log."
+      ]
+    },
+    "xcuitest_release": {
+      "kind": "script",
+      "required": true,
+      "timeout_sec": 1800,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "fixed_cases": [
+        "ReleaseXCUITest/testRunTestsXCUITestStrict"
+      ],
+      "command": [
+        "$SCRIPT_DIR/run_tests_strict_release.sh",
+        "xcuitest"
+      ],
+      "failure_hints": [
+        "Release gate requires signed GUI-capable runner; any skip/0-case XCUITest run fails immediately.",
+        "If compile/runtime fails, inspect /tmp/owl_xcuitest_logs/latest_full.log and latest_diagnostic.log."
+      ]
+    },
+    "dual_e2e_nightly": {
+      "kind": "script",
+      "required": false,
+      "timeout_sec": 2400,
+      "retries": 0,
+      "stability_runs": 1,
+      "min_discovered_cases": 1,
+      "max_not_run_cases": 0,
+      "fixed_cases": [
+        "NightlyDualE2E/testRunTestsDualE2E"
+      ],
+      "command": [
+        "$SCRIPT_DIR/run_tests.sh",
+        "dual-e2e"
+      ],
+      "treat_skip_as_skipped": true,
+      "skip_patterns": [
+        "SKIP",
+        "playwright directory not found",
+        "no signing identity"
+      ],
+      "failure_hints": [
+        "Dual-driver suite needs Playwright assets, CDP port, and XCUITest signing.",
+        "Use this suite to observe cross-layer regressions that are invisible in non-GUI deterministic gates."
+      ]
+    }
+  },
+  "use_cases": {
+    "cpp_host_smoke": {
+      "description": "Required C++ host suite discovers and executes at least one test case.",
+      "required": true,
+      "domains": [
+        "platform-core"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "cpp_host",
+          "case_regex": ".*",
+          "min_matches": 1,
+          "min_passed": 1
+        }
+      ]
+    },
+    "cpp_client_smoke": {
+      "description": "Required C++ client suite discovers and executes at least one test case.",
+      "required": true,
+      "domains": [
+        "platform-core"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "cpp_client",
+          "case_regex": ".*",
+          "min_matches": 1,
+          "min_passed": 1
+        }
+      ]
+    },
+    "cross_layer_navigation_dom": {
+      "description": "Host/Bridge/Renderer cross-layer navigation and DOM evaluation stay functional.",
+      "required": true,
+      "domains": [
+        "platform-core",
+        "navigation"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerNavigateAndEvaluateDOM"
+        }
+      ]
+    },
+    "cross_layer_navigation_replace_dom": {
+      "description": "Cross-layer double navigation replaces prior DOM state deterministically.",
+      "required": true,
+      "domains": [
+        "navigation"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerNavigateTwiceReplacesDOM"
+        }
+      ]
+    },
+    "cross_layer_input_text": {
+      "description": "Cross-layer text input path updates DOM value through Host/Renderer.",
+      "required": true,
+      "domains": [
+        "input-ime"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerTypeTextUpdatesInput"
+        }
+      ]
+    },
+    "cross_layer_find": {
+      "description": "Cross-layer find-in-page callback delivers deterministic final match count.",
+      "required": true,
+      "domains": [
+        "find-in-page"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerFindInPageFinalCount"
+        }
+      ]
+    },
+    "cross_layer_zoom": {
+      "description": "Cross-layer zoom set/get round-trip remains stable.",
+      "required": true,
+      "domains": [
+        "zoom"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerZoomRoundTrip"
+        }
+      ]
+    },
+    "cross_layer_bookmark_crud": {
+      "description": "Cross-layer bookmark add/list/remove flow remains functional.",
+      "required": true,
+      "domains": [
+        "bookmarks"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerBookmarkCRUD"
+        }
+      ]
+    },
+    "cross_layer_permission_roundtrip": {
+      "description": "Cross-layer permission set/get/reset round-trip stays correct.",
+      "required": true,
+      "domains": [
+        "permissions"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerPermissionSetGetReset"
+        }
+      ]
+    },
+    "cross_layer_history_back_forward": {
+      "description": "Cross-layer history back/forward navigation path remains functional.",
+      "required": true,
+      "domains": [
+        "navigation",
+        "history"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerBackForwardViaHistoryAPI"
+        }
+      ]
+    },
+    "pipeline_navigation_basic": {
+      "description": "Core navigation interaction works in pipeline harness.",
+      "required": true,
+      "domains": [
+        "navigation"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testClickNavigates"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testPostNavigationInteraction"
+        }
+      ]
+    },
+    "pipeline_input_and_ime": {
+      "description": "Keyboard and IME input path keeps end-to-end behavior.",
+      "required": true,
+      "domains": [
+        "input-ime"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testKeyboardInput"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testImeSetCompositionThenCommit"
+        }
+      ]
+    },
+    "pipeline_bookmark_crud": {
+      "description": "Bookmark add/remove journey remains correct for user-facing flow.",
+      "required": true,
+      "domains": [
+        "bookmarks"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testBookmarkAddAndGetAll"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testBookmarkRemove"
+        }
+      ]
+    },
+    "unit_history_journey": {
+      "description": "History view model main journey: load, mutate, undo.",
+      "required": true,
+      "domains": [
+        "history"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.HistoryViewModelTests/testLoadInitial_populatesEntriesAndGroups"
+        },
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.HistoryViewModelTests/testUndoDelete_restoresEntryAndHidesToast"
+        }
+      ]
+    },
+    "unit_download_journey": {
+      "description": "Download list lifecycle behaviors are preserved.",
+      "required": true,
+      "domains": [
+        "downloads"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.DownloadViewModelTests/testViewModel_fullLifecycle"
+        }
+      ]
+    },
+    "unit_permission_journey": {
+      "description": "Permission request timeout and settings mutation remain correct.",
+      "required": true,
+      "domains": [
+        "permissions"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.PermissionViewModelTests/testTimeout_autoReject"
+        },
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.SettingsPermissionsViewModelTests/testSetPermission_updatesLocal"
+        }
+      ]
+    },
+    "unit_session_restore": {
+      "description": "Session restore save/load path continues to work.",
+      "required": true,
+      "domains": [
+        "session-restore"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.SessionRestoreTests/testSaveAndLoad_threeTabsRoundTrip"
+        }
+      ]
+    },
+    "unit_storage_clear_data": {
+      "description": "Storage clear-data core action remains covered.",
+      "required": true,
+      "domains": [
+        "storage"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.StorageViewModelTests/testConfirmClearAll_serviceMode_clearsAndReloadsLists"
+        }
+      ]
+    },
+    "unit_console_filtering": {
+      "description": "Console level filtering still works.",
+      "required": true,
+      "domains": [
+        "console"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.ConsoleViewModelTests/testFilter_errorOnly"
+        }
+      ]
+    },
+    "release_cli_semantics": {
+      "description": "Release CLI command path executes without skip fallback.",
+      "required": true,
+      "domains": [
+        "cli"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "cli_release",
+          "case": "ReleaseCLI/testRunTestsCliStrict"
+        }
+      ]
+    },
+    "release_xcuitest_shell": {
+      "description": "Release XCUITest shell executes without skip fallback.",
+      "required": true,
+      "domains": [
+        "xcuitest"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "xcuitest_release",
+          "case": "ReleaseXCUITest/testRunTestsXCUITestStrict"
+        }
+      ]
+    },
+    "nightly_cli_semantics": {
+      "description": "Nightly CLI command path executes end-to-end via script harness.",
+      "required": false,
+      "domains": [
+        "cli"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "cli_nightly",
+          "case": "NightlyCLI/testRunTestsCli"
+        }
+      ]
+    },
+    "nightly_xcuitest_shell": {
+      "description": "Nightly XCUITest shell can be triggered by harness script suite.",
+      "required": false,
+      "domains": [
+        "xcuitest"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "xcuitest_nightly",
+          "case": "NightlyXCUITest/testRunTestsXCUITest"
+        }
+      ]
+    },
+    "nightly_dual_driver": {
+      "description": "Nightly dual-driver path (Playwright + XCUITest+CDP) can be triggered by harness script suite.",
+      "required": false,
+      "domains": [
+        "dual-driver"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "dual_e2e_nightly",
+          "case": "NightlyDualE2E/testRunTestsDualE2E"
+        }
+      ]
+    }
+  }
+}
