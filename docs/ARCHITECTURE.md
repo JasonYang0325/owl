@@ -72,6 +72,22 @@ OWLIntegrationTests (test)  → 跨层集成测试（真实 C-ABI → Mojo → H
 该布局与 Arc 风格的“分层测试”一致，但不要求引入固定框架（例如 TCA）：  
 优先在每条数据流上建立“状态变更可解释”和“跨层真实调用可观测”这两条能力。
 
+### 与你关注框架的决策（最终建议）
+
+- **不强制迁移到 TCA**。现有 `ViewModel` + service + 桥接结构可以通过“可测试边界”补齐：
+  - 业务逻辑先抽成纯函数/状态变更器（纯 reducer 风格函数）
+  - 用 `unit`/`integration` 验证 Action 与 State 的转换
+  - 只在必要路径使用轻量可观测副作用注入（而不是全面换架构）
+- **不要求引入 swift-webdriver 作为唯一 UI 自动化**。当前体系先用：
+  - `pipeline`：`OWLBrowserTests`（真实 Host+WebContents 路径）
+  - `xcuitest`：原生 UI 冒烟（启动/导航/核心交互）
+  - `system`：CGEvent 输入/系统边界回归
+- **对齐 Arc 的可落地要点**：把“内部状态正确性”与“真实用户可见正确性”分层验证：
+  - 内部状态：`unit` + `integration` + `harness`
+  - 用户可见：`pipeline` + `xcuitest` + `system`
+
+> 结论：我们不改现有架构前提下可做到同等级保障。关键是把“Reducer 语义测试”映射到纯逻辑转换测试、把“用户交互验证”映射到 XCUITest/CGEvent 冒烟，而不是先做大规模迁移。
+
 ### 建议的测试分层映射
 
 ```mermaid

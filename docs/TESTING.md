@@ -183,3 +183,25 @@ OWL_MAINTENANCE_CYCLE_PR_CREATE=0 \
 - 采用风险分层门禁（P0/P1/P2）+ 自动化产物闭环，避免“测试全绿但不知道问题出在哪”。
 - 统一失败归因为两类：`infrastructure`（runner/签名/网络）与 `product`（代码路径）。
 - P0 建议项：`core flow + permissions + 升级 smoke + 可复现日志`；若命中 P0 可直接阻断 PR。
+
+## 结论：项目的最佳测试基线（不做架构迁移）
+
+### 1）内部状态正确性（替代“强制 TCA TestStore”）
+- 按功能边界抽纯函数/状态转换（VM reducer 风格）并写 `OWLUnitTests` 与 `integration`。
+- 对外部副作用用 mock 或轻量 fake 替代，保证可控和确定性。
+- 通过 `harness` 的 `use_cases` + `suite quality` 将这些变更链条形成 PR 检查约束。
+
+### 2）真实用户路径可用性（替代“必须 swift-webdriver”）
+- 核心交互优先走 `pipeline`（真实 Host 路径）和 `xcuitest`（原生 UI 冒烟）；
+- 复杂输入和系统窗口边界再用 `system`（CGEvent）补齐。
+- 对高波动场景只保留高价值用例，外部依赖一律本地化。
+
+### 3）执行建议（落地动作）
+- 不迁移架构的前提下，新增 3 类固定门禁：
+  - `core-flow`（业务核心链路）
+  - `permissions-security`（权限、隔离、同步边界）
+  - `upgrade-smoke`（Chromium 版本窗口触发）
+- 每次 PR 至少要满足：
+  - 核心状态链条有 unit/integration 证明；
+  - 至少一条真实用户路径有 pipeline/XCUITest 结果；
+  - 关键失败产物（log/traces/screenshot）可重放。
