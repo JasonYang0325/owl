@@ -1,0 +1,35 @@
+# VCS / local agent metadata
+.git/
+.claude/
+.playwright-mcp/
+owl-client-app/.playwright-mcp/
+feedback/
+CLAUDE.md
+.flow-state.local.md
+.flow-transcript.local.jsonl
+
+# Build artifacts
+out/
+owl-client-app/.build/
+owl-client-app/build/
+owl-client-app/.swiftpm/
+DerivedData/
+*.xcresult
+*.profraw
+
+# Node artifacts
+owl-client-app/playwright/node_modules/
+owl-client-app/playwright/
+owl-client-app/playwright/test-results/
+owl-client-app/playwright/playwright-report/
+
+# Logs / temp files
+*.log
+*.tmp
+*.swp
+*.pem
+EXPORT_FILE_LIST.txt
+test_e2e_input.py
+
+# Local alternative and generated paths
+owl-client-app/UITest/

@@ -1,0 +1,38 @@
+# Flow 状态文件（每个 worktree/tab 独立，不应共享）
+.flow-state.local.md
+.flow-transcript.local.jsonl
+.claude/feature-flow.local.md
+.claude/rules/flow-active.local.md
+.claude/feedback/
+feedback/
+
+# 构建产物
+owl-client-app/.build/
+owl-client-app/build/
+owl-client-app/.swiftpm/
+out/
+
+# Node / Playwright
+owl-client-app/playwright/
+owl-client-app/playwright/node_modules/
+owl-client-app/playwright/test-results/
+owl-client-app/playwright/playwright-report/
+
+# Xcode / SwiftPM 临时文件
+DerivedData/
+*.xcresult
+*.profraw
+
+# 本地工具与日志
+.playwright-mcp/
+owl-client-app/.playwright-mcp/
+*.log
+*.tmp
+*.swp
+*.pem
+EXPORT_FILE_LIST.txt
+test_e2e_input.py
+
+# 本地说明/代理配置（不上传）
+.claude/
+CLAUDE.md
