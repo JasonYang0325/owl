@@ -325,6 +325,75 @@
           "dual_e2e_nightly": 9000
         }
       }
+    },
+    "security-compliance": {
+      "description": "High-risk security + isolation smoke using deterministic core suites.",
+      "suites": [
+        "swift_unit",
+        "swift_integration"
+      ],
+      "use_cases": [
+        "security_permissions_contract",
+        "security_storage_isolation",
+        "security_navigation_safety"
+      ],
+      "required_use_cases": [
+        "security_permissions_contract",
+        "security_storage_isolation",
+        "security_navigation_safety"
+      ],
+      "max_flaky_suites": 0,
+      "required_domains": [
+        "platform-core",
+        "permissions",
+        "session-restore",
+        "storage",
+        "navigation",
+        "security"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 7200,
+        "max_required_final_duration_sec": 3600,
+        "max_suite_final_duration_sec": {
+          "swift_unit": 1800,
+          "swift_integration": 2400
+        }
+      }
+    },
+    "upgrade-smoke": {
+      "description": "Chromium升级窗口触发的关键导航/DOM/输入冒烟，聚焦兼容性回归。",
+      "suites": [
+        "swift_integration",
+        "swift_pipeline"
+      ],
+      "use_cases": [
+        "upgrade_navigation_smoke",
+        "upgrade_dom_contract_smoke",
+        "upgrade_input_ime_smoke"
+      ],
+      "required_use_cases": [
+        "upgrade_navigation_smoke",
+        "upgrade_dom_contract_smoke",
+        "upgrade_input_ime_smoke"
+      ],
+      "max_flaky_suites": 1,
+      "required_domains": [
+        "platform-core",
+        "navigation",
+        "input-ime",
+        "find-in-page",
+        "upgrade"
+      ],
+      "min_domain_coverage": 1.0,
+      "observability_assertions": {
+        "max_total_attempt_duration_sec": 9000,
+        "max_required_final_duration_sec": 5400,
+        "max_suite_final_duration_sec": {
+          "swift_integration": 2400,
+          "swift_pipeline": 3000
+        }
+      }
     }
   },
   "suites": {
@@ -888,6 +957,139 @@
         {
           "suite": "dual_e2e_nightly",
           "case": "NightlyDualE2E/testRunTestsDualE2E"
+        }
+      ]
+    },
+    "security_permissions_contract": {
+      "description": "权限与会话边界回归：请求超时、设置更新与会话还原路径仍可预测。",
+      "required": true,
+      "domains": [
+        "security",
+        "permissions",
+        "session-restore",
+        "platform-core"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.PermissionViewModelTests/testTimeout_autoReject"
+        },
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.SettingsPermissionsViewModelTests/testSetPermission_updatesLocal"
+        },
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.SessionRestoreTests/testSaveAndLoad_threeTabsRoundTrip"
+        }
+      ]
+    },
+    "security_storage_isolation": {
+      "description": "存储/会话隔离冒烟：清理数据与历史恢复路径不会绕过预期边界。",
+      "required": true,
+      "domains": [
+        "security",
+        "storage",
+        "session-restore",
+        "history"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.StorageViewModelTests/testConfirmClearAll_serviceMode_clearsAndReloadsLists"
+        },
+        {
+          "suite": "swift_unit",
+          "case": "OWLUnitTests.HistoryViewModelTests/testUndoDelete_restoresEntryAndHidesToast"
+        }
+      ]
+    },
+    "security_navigation_safety": {
+      "description": "导航安全回归：DOM 回写与历史回退在正常状态下保持可验证。",
+      "required": true,
+      "domains": [
+        "security",
+        "navigation"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerNavigateAndEvaluateDOM"
+        },
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerBackForwardViaHistoryAPI"
+        }
+      ]
+    },
+    "upgrade_navigation_smoke": {
+      "description": "Chromium 升级窗口触发的关键导航兼容性验证。",
+      "required": true,
+      "domains": [
+        "upgrade",
+        "navigation",
+        "platform-core"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerNavigateAndEvaluateDOM"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testClickNavigates"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testPostNavigationInteraction"
+        }
+      ]
+    },
+    "upgrade_dom_contract_smoke": {
+      "description": "升级兼容性 DOM/API 冒烟：替换导航与 DOM/API 查询行为稳定。",
+      "required": true,
+      "domains": [
+        "upgrade",
+        "navigation",
+        "find-in-page"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerNavigateTwiceReplacesDOM"
+        },
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerFindInPageFinalCount"
+        },
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerZoomRoundTrip"
+        }
+      ]
+    },
+    "upgrade_input_ime_smoke": {
+      "description": "升级窗口下 IME/输入行为兼容性：输入与提交不会被回归。",
+      "required": true,
+      "domains": [
+        "upgrade",
+        "input-ime",
+        "platform-core"
+      ],
+      "selector_mode": "all",
+      "selectors": [
+        {
+          "suite": "swift_integration",
+          "case": "OWLIntegrationTests.OWLIntegrationTests/testCrossLayerTypeTextUpdatesInput"
+        },
+        {
+          "suite": "swift_pipeline",
+          "case": "OWLBrowserTests.OWLBrowserTests/testKeyboardInput"
         }
       ]
     }

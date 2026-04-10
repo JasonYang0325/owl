@@ -64,6 +64,8 @@ owl-client-app/scripts/run_tests.sh
 - `swift-fast`（Swift 快速迭代）
 - `release-gate`（发布门禁：在 deterministic core 基础上要求 `cli/xcuitest`）
 - `release-nightly`（夜间门禁：在 deterministic 套件基础上扩展 `cli/xcuitest/dual-e2e` script suites）
+- `security-compliance`（安全/权限/存储边界核验）
+- `upgrade-smoke`（Chromium 升级兼容性冒烟）
 
 使用方式：
 
@@ -175,3 +177,9 @@ OWL_MAINTENANCE_CYCLE_PR_CREATE=0 \
 - XCUITest 需要 Apple 开发者账号签名所有组件
 - AddressBar 焦点后显示 full URL 仍是已知缺陷（XCUITest 以 `XCTExpectFailure` 跟踪）
 - 当前环境 `cpp` 层的 `owl_client_unittests` 可能出现链接失败并被脚本标记为跳过（`owl_host_unittests` 正常）
+
+## 可借鉴实践落地
+
+- 采用风险分层门禁（P0/P1/P2）+ 自动化产物闭环，避免“测试全绿但不知道问题出在哪”。
+- 统一失败归因为两类：`infrastructure`（runner/签名/网络）与 `product`（代码路径）。
+- P0 建议项：`core flow + permissions + 升级 smoke + 可复现日志`；若命中 P0 可直接阻断 PR。
