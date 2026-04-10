@@ -1,0 +1,34 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+module owl.mojom;
+
+// Profile 配置
+struct ProfileConfig {
+  // 存储分区名，仅允许 [a-zA-Z0-9_-]，最长 64 字符
+  string? partition_name;
+  bool off_the_record;
+};
+
+// 导航结果
+struct NavigationResult {
+  bool success;
+  int32 http_status_code;
+  string? error_description;
+};
+
+// 页面信息
+struct PageInfo {
+  string title;
+  string url;
+  bool is_loading;
+  bool can_go_back;
+  bool can_go_forward;
+};
+
+// 停止查找后的行为
+enum StopFindAction {
+  kClearSelection,
+  kKeepSelection,
+  kActivateSelection,
+};

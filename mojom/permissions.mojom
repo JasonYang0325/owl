@@ -1,0 +1,44 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+module owl.mojom;
+
+// Supported permission types (subset of blink::PermissionType).
+// Int values are stable — changing them breaks persisted JSON data.
+enum PermissionType {
+  kCamera = 0,
+  kMicrophone = 1,
+  kGeolocation = 2,
+  kNotifications = 3,
+};
+
+// Permission status (aligned with content::PermissionStatus).
+enum PermissionStatus {
+  kGranted = 0,
+  kDenied = 1,
+  kAsk = 2,      // Default, undecided.
+};
+
+// Single site permission record.
+struct SitePermission {
+  string origin;            // e.g. "https://example.com"
+  PermissionType type;
+  PermissionStatus status;
+};
+
+// Permission management service (per-BrowserContext, same level as BookmarkService).
+interface PermissionService {
+  // Query a single permission. Returns kAsk if not found.
+  GetPermission(string origin, PermissionType type)
+      => (PermissionStatus status);
+
+  // Set a permission. status=kAsk is equivalent to deleting the entry.
+  SetPermission(string origin, PermissionType type, PermissionStatus status);
+
+  // Get all stored permissions (excludes kAsk entries).
+  GetAllPermissions() => (array<SitePermission> permissions);
+
+  // Reset a single permission (restore to kAsk).
+  ResetPermission(string origin, PermissionType type);
+
+  // Reset all permissions.
+  ResetAll();
+};

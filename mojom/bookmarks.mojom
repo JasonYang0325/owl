@@ -1,0 +1,16 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+module owl.mojom;
+
+struct BookmarkItem {
+  string id;
+  string title;
+  string url;
+  string? parent_id;
+};
+
+interface BookmarkService {
+  GetAll() => (array<BookmarkItem> items);
+  Add(string title, string url, string? parent_id) => (BookmarkItem? item);
+  Remove(string id) => (bool success);
+  Update(string id, string? title, string? url) => (bool success);
+};

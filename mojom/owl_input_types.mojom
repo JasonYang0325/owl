@@ -1,0 +1,113 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+module owl.mojom;
+
+import "mojo/public/mojom/base/time.mojom";
+
+// Mouse event types.
+enum MouseEventType {
+  kMouseDown,
+  kMouseUp,
+  kMouseMoved,
+  kMouseEntered,
+  kMouseExited,
+};
+
+// Mouse button.
+enum MouseButton {
+  kNone,
+  kLeft,
+  kRight,
+  kMiddle,
+  kBack,
+  kForward,
+};
+
+// Key event types.
+enum KeyEventType {
+  kRawKeyDown,
+  kKeyUp,
+  kChar,
+};
+
+// Scroll phase (trackpad).
+enum ScrollPhase {
+  kPhaseNone,
+  kPhaseBegan,
+  kPhaseChanged,
+  kPhaseEnded,
+  kPhaseCancelled,
+  kPhaseMayBegin,
+};
+
+// Cursor type (aligned with ui::mojom::CursorType subset).
+enum CursorType {
+  kPointer,        // Default arrow
+  kHand,           // Link hand
+  kIBeam,          // Text selection
+  kCrosshair,      // Crosshair
+  kWait,           // Wait spinner
+  kProgress,       // Background processing
+  kNotAllowed,     // Not allowed
+  kMove,           // Move
+  kGrab,           // Grab (open hand)
+  kGrabbing,       // Grabbing (closed hand)
+  kEWResize,       // East-west resize
+  kNSResize,       // North-south resize
+  kNESWResize,     // NE-SW resize
+  kNWSEResize,     // NW-SE resize
+};
+
+// Scroll delta units.
+enum ScrollDeltaUnits {
+  kScrollByPrecisePixel,
+  kScrollByPixel,
+  kScrollByPage,
+};
+
+// Modifier flags (bitmask).
+const uint32 kModifierShift        = 0x01;
+const uint32 kModifierControl      = 0x02;
+const uint32 kModifierAlt          = 0x04;
+const uint32 kModifierMeta         = 0x08;
+const uint32 kModifierCapsLock     = 0x10;
+const uint32 kModifierIsAutoRepeat = 0x20;
+const uint32 kModifierLeftButton   = 0x40;
+const uint32 kModifierMiddleButton = 0x80;
+const uint32 kModifierRightButton  = 0x100;
+
+struct MouseEvent {
+  MouseEventType type;
+  MouseButton button;
+  mojo_base.mojom.TimeTicks timestamp;
+  float x;
+  float y;
+  float global_x;
+  float global_y;
+  uint32 modifiers;
+  int32 click_count;
+};
+
+struct KeyEvent {
+  KeyEventType type;
+  mojo_base.mojom.TimeTicks timestamp;
+  int32 native_key_code;
+  uint32 modifiers;
+  string? characters;
+  string? unmodified_characters;
+};
+
+struct WheelEvent {
+  mojo_base.mojom.TimeTicks timestamp;
+  float x;
+  float y;
+  float global_x;
+  float global_y;
+  float delta_x;
+  float delta_y;
+  uint32 modifiers;
+  ScrollPhase phase;
+  ScrollPhase momentum_phase;
+  ScrollDeltaUnits delta_units;
+};

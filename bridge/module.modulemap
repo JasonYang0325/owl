@@ -1,0 +1,27 @@
+framework module OWLBridge {
+  // C-ABI (primary Swift interface)
+  header "owl_bridge_api.h"
+
+  // Bridge layer
+  header "OWLBridgeTypes.h"
+  header "OWLMojoThread.h"
+  header "OWLBridgeSession.h"
+  header "OWLBridgeBrowserContext.h"
+  header "OWLBridgeWebView.h"
+  header "OWLProcessLauncher.h"
+  header "OWLRemoteLayerView.h"
+
+  // Client layer
+  header "OWLTab.h"
+  header "OWLTabManager.h"
+  header "OWLWebContentView.h"
+  header "OWLInputTranslator.h"
+  header "OWLAddressBarController.h"
+  header "OWLShortcutManager.h"
+  header "OWLAIMessage.h"
+  header "OWLAIChatSession.h"
+  header "OWLAgentSession.h"
+  header "OWLBrowserMemory.h"
+
+  export *
+}

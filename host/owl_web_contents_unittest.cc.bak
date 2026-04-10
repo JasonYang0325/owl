@@ -1,0 +1,1355 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+#include "third_party/owl/host/owl_web_contents.h"
+
+#include <cmath>
+#include <limits>
+#include <string>
+
+#include "base/command_line.h"
+#include "base/run_loop.h"
+#include "base/test/task_environment.h"
+#include "mojo/core/embedder/embedder.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/platform/platform_handle.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/owl/mojom/owl_types.mojom.h"
+#include "third_party/owl/mojom/web_view.mojom.h"
+#include "ui/gfx/geometry/size.h"
+#include "url/gurl.h"
+
+namespace owl {
+namespace {
+
+// --- Static validation tests (no Mojo needed) ---
+
+TEST(OWLWebContentsStaticTest, AllowsHttpsUrl) {
+  EXPECT_TRUE(OWLWebContents::IsUrlAllowed(GURL("https://example.com")));
+}
+
+TEST(OWLWebContentsStaticTest, AllowsHttpUrl) {
+  EXPECT_TRUE(OWLWebContents::IsUrlAllowed(GURL("http://example.com")));
+}
+
+TEST(OWLWebContentsStaticTest, AllowsDataUrl) {
+  EXPECT_TRUE(OWLWebContents::IsUrlAllowed(
+      GURL("data:text/html,<h1>Hello</h1>")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsFileUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL("file:///etc/passwd")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsChromeUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL("chrome://settings")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsDevtoolsUrl) {
+  EXPECT_FALSE(
+      OWLWebContents::IsUrlAllowed(GURL("devtools://devtools/inspector")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsJavascriptUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL("javascript:alert(1)")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsBlobUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(
+      GURL("blob:https://example.com/uuid")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsEmptyUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL()));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsInvalidUrl) {
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL("not-a-url")));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsLargeDataUrl) {
+  std::string large_data = "data:text/plain,";
+  large_data.append(2 * 1024 * 1024 + 1, 'x');
+  EXPECT_FALSE(OWLWebContents::IsUrlAllowed(GURL(large_data)));
+}
+
+TEST(OWLWebContentsStaticTest, ValidGeometry) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(800, 600), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, MinimumGeometry) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(1, 1), 0.5f));
+}
+
+TEST(OWLWebContentsStaticTest, MaximumGeometry) {
+  EXPECT_TRUE(
+      OWLWebContents::IsGeometryValid(gfx::Size(16384, 16384), 4.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsZeroWidth) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(0, 600), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsZeroHeight) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(800, 0), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsOversizedWidth) {
+  EXPECT_FALSE(
+      OWLWebContents::IsGeometryValid(gfx::Size(16385, 600), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsOversizedHeight) {
+  EXPECT_FALSE(
+      OWLWebContents::IsGeometryValid(gfx::Size(600, 16385), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsTooLowScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(800, 600), 0.4f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsTooHighScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(800, 600), 4.1f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsNegativeWidth) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(-1, 600), 2.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsZeroScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(800, 600), 0.0f));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsNaNScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(
+      gfx::Size(800, 600), std::numeric_limits<float>::quiet_NaN()));
+}
+
+TEST(OWLWebContentsStaticTest, RejectsInfScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(
+      gfx::Size(800, 600), std::numeric_limits<float>::infinity()));
+}
+
+// --- Mojo lifecycle tests ---
+
+class FakeWebViewObserver : public owl::mojom::WebViewObserver {
+ public:
+  void OnPageInfoChanged(owl::mojom::PageInfoPtr info) override {
+    last_page_info_ = std::move(info);
+    page_info_changed_count_++;
+  }
+  void OnLoadFinished(bool success) override {
+    load_finished_ = true;
+    load_success_ = success;
+  }
+  void OnUnhandledKeyEvent(owl::mojom::KeyEventPtr event) override {}
+  void OnCursorChanged(owl::mojom::CursorType cursor_type) override {}
+  void OnCaretRectChanged(const gfx::Rect& caret_rect) override {}
+  void OnRenderSurfaceChanged(uint32_t ca_context_id,
+                              mojo::PlatformHandle io_surface_mach_port,
+                              const gfx::Size& pixel_size,
+                              float scale_factor) override {}
+  void OnFindReply(int32_t request_id,
+                   int32_t number_of_matches,
+                   int32_t active_match_ordinal,
+                   bool final_update) override {
+    find_reply_count_++;
+    last_find_request_id_ = request_id;
+    last_find_matches_ = number_of_matches;
+    last_find_ordinal_ = active_match_ordinal;
+    last_find_final_ = final_update;
+  }
+  void OnZoomLevelChanged(double new_level) override {
+    zoom_changed_count_++;
+    last_zoom_level_ = new_level;
+  }
+
+  int page_info_changed_count_ = 0;
+  owl::mojom::PageInfoPtr last_page_info_;
+  bool load_finished_ = false;
+  bool load_success_ = false;
+  int find_reply_count_ = 0;
+  int32_t last_find_request_id_ = 0;
+  int32_t last_find_matches_ = 0;
+  int32_t last_find_ordinal_ = 0;
+  bool last_find_final_ = false;
+  int zoom_changed_count_ = 0;
+  double last_zoom_level_ = 0.0;
+};
+
+class OWLWebContentsMojoTest : public testing::Test {
+ protected:
+  static void SetUpTestSuite() {
+    static bool init = [] { mojo::core::Init(); return true; }();
+    (void)init;
+  }
+
+  void SetUp() override {
+    web_contents_ = std::make_unique<OWLWebContents>(
+        base::BindOnce([](bool* flag, OWLWebContents*) { *flag = true; },
+                       &closed_flag_));
+    web_contents_->Bind(remote_.BindNewPipeAndPassReceiver());
+
+    observer_ = std::make_unique<FakeWebViewObserver>();
+    observer_receiver_ =
+        std::make_unique<mojo::Receiver<owl::mojom::WebViewObserver>>(
+            observer_.get());
+    web_contents_->SetInitialObserver(
+        observer_receiver_->BindNewPipeAndPassRemote());
+  }
+
+  base::test::SingleThreadTaskEnvironment task_environment_;
+  std::unique_ptr<OWLWebContents> web_contents_;
+  mojo::Remote<owl::mojom::WebViewHost> remote_;
+  std::unique_ptr<FakeWebViewObserver> observer_;
+  std::unique_ptr<mojo::Receiver<owl::mojom::WebViewObserver>>
+      observer_receiver_;
+  bool closed_flag_ = false;
+
+  void TearDown() override {
+    // Reset all global function pointers to prevent cross-test pollution.
+    g_real_navigate_func = nullptr;
+    g_real_resize_func = nullptr;
+    g_real_mouse_event_func = nullptr;
+    g_real_key_event_func = nullptr;
+    g_real_wheel_event_func = nullptr;
+    g_real_eval_js_func = nullptr;
+    g_real_ime_set_composition_func = nullptr;
+    g_real_ime_commit_text_func = nullptr;
+    g_real_ime_finish_composing_func = nullptr;
+    g_real_go_back_func = nullptr;
+    g_real_go_forward_func = nullptr;
+    g_real_reload_func = nullptr;
+    g_real_stop_func = nullptr;
+    g_real_detach_observer_func = nullptr;
+    g_real_update_observer_func = nullptr;
+    g_real_find_func = nullptr;
+    g_real_stop_finding_func = nullptr;
+    g_real_set_zoom_func = nullptr;
+    g_real_get_zoom_func = nullptr;
+  }
+
+  void FlushMojo() {
+    base::RunLoop().RunUntilIdle();
+  }
+};
+
+// [P0] Missing-10: Navigate with allowed URL
+TEST_F(OWLWebContentsMojoTest, NavigateAllowedUrlSucceeds) {
+  base::RunLoop run_loop;
+  remote_->Navigate(
+      GURL("https://example.com"),
+      base::BindOnce(
+          [](base::RunLoop* loop, owl::mojom::NavigationResultPtr result) {
+            EXPECT_TRUE(result->success);
+            EXPECT_EQ(result->http_status_code, 200);
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+// [P0] Missing-10: Navigate with blocked URL
+TEST_F(OWLWebContentsMojoTest, NavigateBlockedUrlFails) {
+  base::RunLoop run_loop;
+  remote_->Navigate(
+      GURL("file:///etc/passwd"),
+      base::BindOnce(
+          [](base::RunLoop* loop, owl::mojom::NavigationResultPtr result) {
+            EXPECT_FALSE(result->success);
+            EXPECT_EQ(result->http_status_code, 0);
+            EXPECT_TRUE(result->error_description.has_value());
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+// [P0] Missing-10: Navigate triggers observer notification
+TEST_F(OWLWebContentsMojoTest, NavigateNotifiesObserver) {
+  base::RunLoop run_loop;
+  remote_->Navigate(
+      GURL("https://example.com"),
+      base::BindOnce(
+          [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  FlushMojo();
+  EXPECT_GE(observer_->page_info_changed_count_, 1);
+  ASSERT_TRUE(observer_->last_page_info_);
+  EXPECT_EQ(observer_->last_page_info_->url, "https://example.com/");
+  EXPECT_TRUE(observer_->last_page_info_->is_loading);
+}
+
+// [P0] Missing-14: Close sends callback and notifies parent
+TEST_F(OWLWebContentsMojoTest, CloseCallsBack) {
+  base::RunLoop run_loop;
+  remote_->Close(base::BindOnce(
+      [](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  // Parent notification is async (PostTask).
+  FlushMojo();
+  EXPECT_TRUE(closed_flag_);
+}
+
+// [P1] Missing-11: UpdateViewGeometry with valid params
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryValid) {
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(1024, 768), 2.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+}
+
+// [P1] Missing-13: SetObserver replaces existing
+TEST_F(OWLWebContentsMojoTest, SetObserverReplacesExisting) {
+  auto new_observer = std::make_unique<FakeWebViewObserver>();
+  mojo::Receiver<owl::mojom::WebViewObserver> new_receiver(
+      new_observer.get());
+  remote_->SetObserver(new_receiver.BindNewPipeAndPassRemote());
+  FlushMojo();
+
+  // Navigate should notify the new observer, not the old one.
+  base::RunLoop run_loop;
+  remote_->Navigate(
+      GURL("https://test.com"),
+      base::BindOnce(
+          [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+  FlushMojo();
+
+  EXPECT_EQ(observer_->page_info_changed_count_, 0);
+  EXPECT_GE(new_observer->page_info_changed_count_, 1);
+}
+
+// [P2] Missing-16: GetPageInfo returns current state
+TEST_F(OWLWebContentsMojoTest, GetPageInfoReturnsState) {
+  // Navigate first.
+  {
+    base::RunLoop run_loop;
+    remote_->Navigate(
+        GURL("https://example.com"),
+        base::BindOnce(
+            [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+              loop->Quit();
+            },
+            &run_loop));
+    run_loop.Run();
+  }
+
+  base::RunLoop run_loop;
+  remote_->GetPageInfo(base::BindOnce(
+      [](base::RunLoop* loop, owl::mojom::PageInfoPtr info) {
+        EXPECT_EQ(info->url, "https://example.com/");
+        EXPECT_TRUE(info->is_loading);
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+}
+
+// [P2] Missing-17: GetPageContent returns empty (stub)
+TEST_F(OWLWebContentsMojoTest, GetPageContentReturnsEmpty) {
+  base::RunLoop run_loop;
+  remote_->GetPageContent(base::BindOnce(
+      [](base::RunLoop* loop, const std::string& content) {
+        EXPECT_TRUE(content.empty());
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+}
+
+// --- EvaluateJavaScript tests ---
+
+TEST_F(OWLWebContentsMojoTest, EvaluateJSRejectedWithoutFlag) {
+  // Without --enable-owl-test-js, EvaluateJavaScript should be rejected.
+  base::RunLoop run_loop;
+  remote_->EvaluateJavaScript(
+      "1+1",
+      base::BindOnce(
+          [](base::RunLoop* loop, const std::string& result,
+             int32_t result_type) {
+            EXPECT_EQ(result_type, 1);
+            EXPECT_TRUE(result.find("enable-owl-test-js") != std::string::npos)
+                << "Expected gate error, got: " << result;
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+TEST_F(OWLWebContentsMojoTest, EvaluateJSRejectsOversizeExpression) {
+  // Enable the gate.
+  base::CommandLine::ForCurrentProcess()->AppendSwitch("enable-owl-test-js");
+
+  std::string large_expr(1024 * 1024 + 1, 'x');
+  base::RunLoop run_loop;
+  remote_->EvaluateJavaScript(
+      large_expr,
+      base::BindOnce(
+          [](base::RunLoop* loop, const std::string& result,
+             int32_t result_type) {
+            EXPECT_EQ(result_type, 1);
+            EXPECT_TRUE(result.find("too large") != std::string::npos)
+                << "Expected size error, got: " << result;
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+TEST_F(OWLWebContentsMojoTest, EvaluateJSNoRealImplFallback) {
+  // Enable the gate but g_real_eval_js_func is nullptr (default).
+  base::CommandLine::ForCurrentProcess()->AppendSwitch("enable-owl-test-js");
+
+  base::RunLoop run_loop;
+  remote_->EvaluateJavaScript(
+      "1+1",
+      base::BindOnce(
+          [](base::RunLoop* loop, const std::string& result,
+             int32_t result_type) {
+            EXPECT_EQ(result_type, 1);
+            EXPECT_TRUE(result.find("Not supported") != std::string::npos)
+                << "Expected fallback error, got: " << result;
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+TEST_F(OWLWebContentsMojoTest, EvaluateJSDelegatesToRealFunc) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch("enable-owl-test-js");
+
+  // Install a fake eval func that echoes the expression.
+  g_real_eval_js_func = [](const std::string& expression,
+                           base::OnceCallback<void(const std::string&, int32_t)> callback) {
+    std::move(callback).Run("echo:" + expression, 0);
+  };
+
+  base::RunLoop run_loop;
+  remote_->EvaluateJavaScript(
+      "test_expr",
+      base::BindOnce(
+          [](base::RunLoop* loop, const std::string& result,
+             int32_t result_type) {
+            EXPECT_EQ(result_type, 0);
+            EXPECT_EQ(result, "echo:test_expr");
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  // Cleanup.
+  g_real_eval_js_func = nullptr;
+}
+
+// --- Phase 32: Navigation completion tests ---
+
+// [AC-008] Phase 32: GoBack stub mode callback fires.
+TEST_F(OWLWebContentsMojoTest, GoBackStubCallsBack) {
+  bool callback_fired = false;
+  base::RunLoop run_loop;
+  remote_->GoBack(base::BindOnce(
+      [](bool* fired, base::RunLoop* loop) { *fired = true; loop->Quit(); },
+      &callback_fired, &run_loop));
+  run_loop.Run();
+  EXPECT_TRUE(callback_fired);
+}
+
+// [AC-008] Phase 32: GoForward stub mode callback fires.
+TEST_F(OWLWebContentsMojoTest, GoForwardStubCallsBack) {
+  bool callback_fired = false;
+  base::RunLoop run_loop;
+  remote_->GoForward(base::BindOnce(
+      [](bool* fired, base::RunLoop* loop) { *fired = true; loop->Quit(); },
+      &callback_fired, &run_loop));
+  run_loop.Run();
+  EXPECT_TRUE(callback_fired);
+}
+
+// [AC-008] Phase 32: Reload stub mode callback fires.
+TEST_F(OWLWebContentsMojoTest, ReloadStubCallsBack) {
+  bool callback_fired = false;
+  base::RunLoop run_loop;
+  remote_->Reload(base::BindOnce(
+      [](bool* fired, base::RunLoop* loop) { *fired = true; loop->Quit(); },
+      &callback_fired, &run_loop));
+  run_loop.Run();
+  EXPECT_TRUE(callback_fired);
+}
+
+// [AC-004, AC-008] Phase 32: Stop stub sets is_loading to false.
+TEST_F(OWLWebContentsMojoTest, StopStubSetsNotLoading) {
+  // Navigate first to set is_loading = true.
+  {
+    base::RunLoop run_loop;
+    remote_->Navigate(
+        GURL("https://example.com"),
+        base::BindOnce(
+            [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+              loop->Quit();
+            },
+            &run_loop));
+    run_loop.Run();
+  }
+  // Verify is_loading is true before Stop.
+  {
+    base::RunLoop run_loop;
+    remote_->GetPageInfo(base::BindOnce(
+        [](base::RunLoop* loop, owl::mojom::PageInfoPtr info) {
+          EXPECT_TRUE(info->is_loading);
+          loop->Quit();
+        },
+        &run_loop));
+    run_loop.Run();
+  }
+  // Stop.
+  {
+    base::RunLoop run_loop;
+    remote_->Stop(
+        base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+    run_loop.Run();
+  }
+  // Verify is_loading is now false.
+  {
+    base::RunLoop run_loop;
+    remote_->GetPageInfo(base::BindOnce(
+        [](base::RunLoop* loop, owl::mojom::PageInfoPtr info) {
+          EXPECT_FALSE(info->is_loading);
+          loop->Quit();
+        },
+        &run_loop));
+    run_loop.Run();
+  }
+}
+
+// [AC-001, AC-008] Phase 32: GoBack real mode delegates to g_real_go_back_func.
+TEST_F(OWLWebContentsMojoTest, GoBackDelegatesToRealFunc) {
+  static bool s_called = false;
+  s_called = false;
+  g_real_go_back_func = []() { s_called = true; };
+
+  base::RunLoop run_loop;
+  remote_->GoBack(
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  g_real_go_back_func = nullptr;
+}
+
+// [AC-002, AC-008] Phase 32: GoForward real mode delegates to g_real_go_forward_func.
+TEST_F(OWLWebContentsMojoTest, GoForwardDelegatesToRealFunc) {
+  static bool s_called = false;
+  s_called = false;
+  g_real_go_forward_func = []() { s_called = true; };
+
+  base::RunLoop run_loop;
+  remote_->GoForward(
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  g_real_go_forward_func = nullptr;
+}
+
+// [AC-003, AC-008] Phase 32: Reload real mode delegates to g_real_reload_func.
+TEST_F(OWLWebContentsMojoTest, ReloadDelegatesToRealFunc) {
+  static bool s_called = false;
+  s_called = false;
+  g_real_reload_func = []() { s_called = true; };
+
+  base::RunLoop run_loop;
+  remote_->Reload(
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  g_real_reload_func = nullptr;
+}
+
+// [AC-006, AC-008] Phase 32: GetPageContent real mode decodes JSON string.
+TEST_F(OWLWebContentsMojoTest, GetPageContentWithRealEvalJS) {
+  g_real_eval_js_func =
+      [](const std::string& expression,
+         base::OnceCallback<void(const std::string&, int32_t)> callback) {
+        std::move(callback).Run("\"hello world\"", 0);
+      };
+
+  base::RunLoop run_loop;
+  remote_->GetPageContent(base::BindOnce(
+      [](base::RunLoop* loop, const std::string& content) {
+        EXPECT_EQ(content, "hello world");
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+
+  g_real_eval_js_func = nullptr;
+}
+
+// [AC-004, AC-008] Phase 32: Stop real mode does not directly change is_loading.
+TEST_F(OWLWebContentsMojoTest, StopRealModeDoesNotChangeLoading) {
+  // Navigate to set is_loading = true.
+  {
+    base::RunLoop run_loop;
+    remote_->Navigate(
+        GURL("https://example.com"),
+        base::BindOnce(
+            [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+              loop->Quit();
+            },
+            &run_loop));
+    run_loop.Run();
+  }
+  // Verify is_loading is true before Stop.
+  {
+    base::RunLoop run_loop;
+    remote_->GetPageInfo(base::BindOnce(
+        [](base::RunLoop* loop, owl::mojom::PageInfoPtr info) {
+          EXPECT_TRUE(info->is_loading);
+          loop->Quit();
+        },
+        &run_loop));
+    run_loop.Run();
+  }
+
+  // Install real stop func and verify delegation.
+  static bool s_stop_called = false;
+  s_stop_called = false;
+  g_real_stop_func = []() { s_stop_called = true; };
+
+  {
+    base::RunLoop run_loop;
+    remote_->Stop(
+        base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+    run_loop.Run();
+  }
+
+  EXPECT_TRUE(s_stop_called);
+
+  // In real mode, is_loading should NOT be changed directly by OWLWebContents.
+  {
+    base::RunLoop run_loop;
+    remote_->GetPageInfo(base::BindOnce(
+        [](base::RunLoop* loop, owl::mojom::PageInfoPtr info) {
+          EXPECT_TRUE(info->is_loading);
+          loop->Quit();
+        },
+        &run_loop));
+    run_loop.Run();
+  }
+
+  g_real_stop_func = nullptr;
+}
+
+// [AC-008] Phase 32: Navigate real mode does not send stub PageInfo.
+TEST_F(OWLWebContentsMojoTest, NavigateRealModeNoStubPageInfo) {
+  static bool s_navigate_called = false;
+  s_navigate_called = false;
+  g_real_navigate_func =
+      [](const GURL& url,
+         mojo::Remote<owl::mojom::WebViewObserver>* observer) {
+        s_navigate_called = true;
+      };
+
+  base::RunLoop run_loop;
+  remote_->Navigate(
+      GURL("https://example.com"),
+      base::BindOnce(
+          [](base::RunLoop* loop, owl::mojom::NavigationResultPtr) {
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  FlushMojo();
+  EXPECT_TRUE(s_navigate_called);
+  EXPECT_EQ(observer_->page_info_changed_count_, 0);
+
+  g_real_navigate_func = nullptr;
+}
+
+// [AC-008] Phase 32: Close delegates to g_real_detach_observer_func.
+TEST_F(OWLWebContentsMojoTest, CloseDelegatesToDetachObserver) {
+  static bool s_detach_called = false;
+  s_detach_called = false;
+  g_real_detach_observer_func = []() { s_detach_called = true; };
+
+  base::RunLoop run_loop;
+  remote_->Close(
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_detach_called);
+  FlushMojo();
+
+  g_real_detach_observer_func = nullptr;
+}
+
+// [AC-006] Phase 32: GetPageContent returns empty for empty JSON body.
+TEST_F(OWLWebContentsMojoTest, GetPageContentRealEvalJSEmptyBody) {
+  g_real_eval_js_func =
+      [](const std::string& expression,
+         base::OnceCallback<void(const std::string&, int32_t)> callback) {
+        std::move(callback).Run("\"\"", 0);
+      };
+
+  base::RunLoop run_loop;
+  remote_->GetPageContent(base::BindOnce(
+      [](base::RunLoop* loop, const std::string& content) {
+        EXPECT_TRUE(content.empty());
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+
+  g_real_eval_js_func = nullptr;
+}
+
+// [AC-007] Phase 32: OnDisconnect delegates to g_real_detach_observer_func.
+TEST_F(OWLWebContentsMojoTest, OnDisconnectDelegatesToDetachObserver) {
+  static bool s_detach_called = false;
+  s_detach_called = false;
+  g_real_detach_observer_func = []() { s_detach_called = true; };
+
+  // Drop the remote to trigger Mojo disconnect.
+  remote_.reset();
+  FlushMojo();
+
+  EXPECT_TRUE(s_detach_called);
+  EXPECT_TRUE(closed_flag_);
+
+  g_real_detach_observer_func = nullptr;
+}
+
+// --- Phase 33: Find-in-Page tests ---
+
+// [AC-007] Phase 33: Find stub mode (g_real_find_func=nullptr) returns request_id=0.
+TEST_F(OWLWebContentsMojoTest, FindStubReturnsZero) {
+  ASSERT_EQ(g_real_find_func, nullptr);
+
+  base::RunLoop run_loop;
+  remote_->Find(
+      "hello", /*forward=*/true, /*match_case=*/false,
+      base::BindOnce(
+          [](base::RunLoop* loop, int32_t request_id) {
+            EXPECT_EQ(request_id, 0);
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+}
+
+// [AC-007] Phase 33: Find with empty query returns request_id=0.
+TEST_F(OWLWebContentsMojoTest, FindEmptyQueryReturnsZero) {
+  // Even with a real func installed, empty query should short-circuit.
+  static bool s_called = false;
+  s_called = false;
+  g_real_find_func = [](std::string query, bool forward,
+                        bool match_case) -> int32_t {
+    s_called = true;
+    return 42;
+  };
+
+  base::RunLoop run_loop;
+  remote_->Find(
+      "", /*forward=*/true, /*match_case=*/false,
+      base::BindOnce(
+          [](base::RunLoop* loop, int32_t request_id) {
+            EXPECT_EQ(request_id, 0);
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  // The real func should NOT have been called for empty query.
+  EXPECT_FALSE(s_called);
+  g_real_find_func = nullptr;
+}
+
+// [AC-007] Phase 33: Find real mode delegates to g_real_find_func (true,true).
+TEST_F(OWLWebContentsMojoTest, FindDelegatesToRealFunc) {
+  static bool s_called = false;
+  static bool s_query_matched = false;
+  static bool s_forward = false;
+  static bool s_match_case = false;
+  s_called = false;
+  s_query_matched = false;
+  s_forward = false;
+  s_match_case = false;
+
+  g_real_find_func = [](std::string query, bool forward,
+                        bool match_case) -> int32_t {
+    s_called = true;
+    s_query_matched = (query == "test_query");
+    s_forward = forward;
+    s_match_case = match_case;
+    return 7;
+  };
+
+  base::RunLoop run_loop;
+  remote_->Find(
+      "test_query", /*forward=*/true, /*match_case=*/true,
+      base::BindOnce(
+          [](base::RunLoop* loop, int32_t request_id) {
+            EXPECT_EQ(request_id, 7);
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  EXPECT_TRUE(s_query_matched);
+  EXPECT_TRUE(s_forward);
+  EXPECT_TRUE(s_match_case);
+  g_real_find_func = nullptr;
+}
+
+// [AC-007] Phase 33: Find real mode with (forward=false, match_case=false).
+TEST_F(OWLWebContentsMojoTest, FindDelegatesToRealFuncReverse) {
+  static bool s_called = false;
+  static bool s_forward = true;
+  static bool s_match_case = true;
+  s_called = false;
+  s_forward = true;
+  s_match_case = true;
+
+  g_real_find_func = [](std::string query, bool forward,
+                        bool match_case) -> int32_t {
+    s_called = true;
+    s_forward = forward;
+    s_match_case = match_case;
+    return 8;
+  };
+
+  base::RunLoop run_loop;
+  remote_->Find(
+      "test", /*forward=*/false, /*match_case=*/false,
+      base::BindOnce(
+          [](base::RunLoop* loop, int32_t request_id) {
+            EXPECT_EQ(request_id, 8);
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  EXPECT_FALSE(s_forward);
+  EXPECT_FALSE(s_match_case);
+  g_real_find_func = nullptr;
+}
+
+// [AC-007] Phase 33: StopFinding stub mode does not crash.
+TEST_F(OWLWebContentsMojoTest, StopFindingStubNoCrash) {
+  ASSERT_EQ(g_real_stop_finding_func, nullptr);
+  remote_->StopFinding(owl::mojom::StopFindAction::kClearSelection);
+  FlushMojo();
+}
+
+// [AC-007] Phase 33: StopFinding kClearSelection delegates correctly.
+TEST_F(OWLWebContentsMojoTest, StopFindingClearSelection) {
+  static int32_t s_action = -1;
+  s_action = -1;
+  g_real_stop_finding_func = [](int32_t action) { s_action = action; };
+
+  remote_->StopFinding(owl::mojom::StopFindAction::kClearSelection);
+  FlushMojo();
+  EXPECT_EQ(s_action, 0);
+  g_real_stop_finding_func = nullptr;
+}
+
+// [AC-007] Phase 33: StopFinding kKeepSelection delegates correctly.
+TEST_F(OWLWebContentsMojoTest, StopFindingKeepSelection) {
+  static int32_t s_action = -1;
+  s_action = -1;
+  g_real_stop_finding_func = [](int32_t action) { s_action = action; };
+
+  remote_->StopFinding(owl::mojom::StopFindAction::kKeepSelection);
+  FlushMojo();
+  EXPECT_EQ(s_action, 1);
+  g_real_stop_finding_func = nullptr;
+}
+
+// [AC-007] Phase 33: StopFinding kActivateSelection delegates correctly.
+TEST_F(OWLWebContentsMojoTest, StopFindingActivateSelection) {
+  static int32_t s_action = -1;
+  s_action = -1;
+  g_real_stop_finding_func = [](int32_t action) { s_action = action; };
+
+  remote_->StopFinding(owl::mojom::StopFindAction::kActivateSelection);
+  FlushMojo();
+  EXPECT_EQ(s_action, 2);
+  g_real_stop_finding_func = nullptr;
+}
+
+// --- Phase 34: Zoom Control tests ---
+
+// [AC-006] Phase 34: SetZoomLevel stub mode (g_real_set_zoom_func=nullptr) callback fires.
+TEST_F(OWLWebContentsMojoTest, SetZoomLevelStubCallsBack) {
+  ASSERT_EQ(g_real_set_zoom_func, nullptr);
+
+  bool callback_fired = false;
+  base::RunLoop run_loop;
+  remote_->SetZoomLevel(
+      1.0,
+      base::BindOnce(
+          [](bool* fired, base::RunLoop* loop) {
+            *fired = true;
+            loop->Quit();
+          },
+          &callback_fired, &run_loop));
+  run_loop.Run();
+  EXPECT_TRUE(callback_fired);
+}
+
+// [AC-006] Phase 34: GetZoomLevel stub mode (g_real_get_zoom_func=nullptr) returns 0.0.
+TEST_F(OWLWebContentsMojoTest, GetZoomLevelStubReturnsZero) {
+  ASSERT_EQ(g_real_get_zoom_func, nullptr);
+
+  base::RunLoop run_loop;
+  remote_->GetZoomLevel(base::BindOnce(
+      [](base::RunLoop* loop, double level) {
+        EXPECT_DOUBLE_EQ(level, 0.0);
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+}
+
+// [AC-006] Phase 34: SetZoomLevel real mode delegates to g_real_set_zoom_func.
+TEST_F(OWLWebContentsMojoTest, SetZoomLevelDelegatesToRealFunc) {
+  static bool s_called = false;
+  static double s_level = 0.0;
+  s_called = false;
+  s_level = 0.0;
+  g_real_set_zoom_func = [](double level) {
+    s_called = true;
+    s_level = level;
+  };
+
+  base::RunLoop run_loop;
+  remote_->SetZoomLevel(
+      2.5,
+      base::BindOnce(
+          [](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+  EXPECT_DOUBLE_EQ(s_level, 2.5);
+}
+
+// [AC-006] Phase 34: GetZoomLevel real mode delegates to g_real_get_zoom_func.
+TEST_F(OWLWebContentsMojoTest, GetZoomLevelDelegatesToRealFunc) {
+  static bool s_called = false;
+  s_called = false;
+  g_real_get_zoom_func = []() -> double {
+    s_called = true;
+    return 3.14;
+  };
+
+  base::RunLoop run_loop;
+  remote_->GetZoomLevel(base::BindOnce(
+      [](base::RunLoop* loop, double level) {
+        EXPECT_DOUBLE_EQ(level, 3.14);
+        loop->Quit();
+      },
+      &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called);
+}
+
+// [AC-005, AC-006] Phase 34: SetZoomLevel with non-finite values (NaN/Inf)
+// should not crash and callback should still fire.
+// [P1-1] Each sub-case now asserts callback_fired to verify the callback
+// is invoked even when the non-finite value is rejected.
+TEST_F(OWLWebContentsMojoTest, SetZoomLevelNonFiniteIgnored) {
+  // Install real func to verify it is NOT called for non-finite values.
+  static bool s_called = false;
+  g_real_set_zoom_func = [](double level) { s_called = true; };
+
+  // Test NaN.
+  {
+    s_called = false;
+    bool callback_fired = false;
+    base::RunLoop run_loop;
+    remote_->SetZoomLevel(
+        std::numeric_limits<double>::quiet_NaN(),
+        base::BindOnce(
+            [](bool* fired, base::RunLoop* loop) {
+              *fired = true;
+              loop->Quit();
+            },
+            &callback_fired, &run_loop));
+    run_loop.Run();
+    EXPECT_FALSE(s_called) << "g_real_set_zoom_func should not be called for NaN";
+    EXPECT_TRUE(callback_fired) << "Callback should fire even for NaN";
+  }
+
+  // Test positive infinity.
+  {
+    s_called = false;
+    bool callback_fired = false;
+    base::RunLoop run_loop;
+    remote_->SetZoomLevel(
+        std::numeric_limits<double>::infinity(),
+        base::BindOnce(
+            [](bool* fired, base::RunLoop* loop) {
+              *fired = true;
+              loop->Quit();
+            },
+            &callback_fired, &run_loop));
+    run_loop.Run();
+    EXPECT_FALSE(s_called) << "g_real_set_zoom_func should not be called for +Inf";
+    EXPECT_TRUE(callback_fired) << "Callback should fire even for +Inf";
+  }
+
+  // Test negative infinity.
+  {
+    s_called = false;
+    bool callback_fired = false;
+    base::RunLoop run_loop;
+    remote_->SetZoomLevel(
+        -std::numeric_limits<double>::infinity(),
+        base::BindOnce(
+            [](bool* fired, base::RunLoop* loop) {
+              *fired = true;
+              loop->Quit();
+            },
+            &callback_fired, &run_loop));
+    run_loop.Run();
+    EXPECT_FALSE(s_called) << "g_real_set_zoom_func should not be called for -Inf";
+    EXPECT_TRUE(callback_fired) << "Callback should fire even for -Inf";
+  }
+}
+
+// =============================================================================
+// Phase 1: Retina scale factor tests
+// =============================================================================
+// Tests verify that UpdateViewGeometry correctly stores and propagates
+// device_scale_factor to g_real_resize_func. Note: Despite the Mojo parameter
+// name "size_in_pixels", the C-ABI caller passes DIP values. UpdateViewGeometry
+// does NOT convert pixel→DIP; it passes the size through unchanged.
+
+// [AC2] Happy path: UpdateViewGeometry with scale=2.0 propagates to resize func.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryPropagatesRetinaScale) {
+  static bool s_called = false;
+  static float s_scale = 0.0f;
+  static gfx::Size s_dip_size;
+  s_called = false;
+  s_scale = 0.0f;
+  s_dip_size = gfx::Size();
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_called = true;
+    s_dip_size = dip_size;
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  // Client sends pixel_size=2048x1536, scale=2.0
+  remote_->UpdateViewGeometry(
+      gfx::Size(2048, 1536), 2.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(s_called) << "g_real_resize_func should be invoked";
+  EXPECT_FLOAT_EQ(s_scale, 2.0f) << "AC2: scale_factor must be 2.0";
+}
+
+// [AC3] Happy path: UpdateViewGeometry passes DIP size through to resize func.
+// NOTE: Despite the Mojo parameter name "size_in_pixels", the C-ABI caller
+// (OWLBridge_UpdateViewGeometry) passes DIP values. The resize func receives
+// the same DIP values unchanged — no pixel-to-DIP conversion happens here.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryPassesDipSizeThrough) {
+  static gfx::Size s_dip_size;
+  static float s_scale = 0.0f;
+  s_dip_size = gfx::Size();
+  s_scale = 0.0f;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_dip_size = dip_size;
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  // C-ABI passes DIP directly: 1280x800 DIP at 2x scale
+  remote_->UpdateViewGeometry(
+      gfx::Size(1280, 800), 2.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FLOAT_EQ(s_scale, 2.0f);
+  // Resize func receives same DIP values — no conversion.
+  EXPECT_EQ(s_dip_size.width(), 1280)
+      << "AC3: DIP size passed through unchanged";
+  EXPECT_EQ(s_dip_size.height(), 800)
+      << "AC3: DIP size passed through unchanged";
+}
+
+// [AC2] Boundary: UpdateViewGeometry with scale=1.0 (non-Retina).
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryNonRetinaScale) {
+  static float s_scale = 0.0f;
+  static gfx::Size s_dip_size;
+  s_scale = 0.0f;
+  s_dip_size = gfx::Size();
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_dip_size = dip_size;
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(1024, 768), 1.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FLOAT_EQ(s_scale, 1.0f)
+      << "AC2: non-Retina scale_factor must be 1.0";
+  EXPECT_EQ(s_dip_size.width(), 1024)
+      << "AC3: at 1x, DIP == pixel";
+  EXPECT_EQ(s_dip_size.height(), 768)
+      << "AC3: at 1x, DIP == pixel";
+}
+
+// [AC2, AC3] Boundary: UpdateViewGeometry with fractional scale (1.5x).
+// Verifies DIP values are passed through unchanged at non-integer scale.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryFractionalScale) {
+  static float s_scale = 0.0f;
+  static gfx::Size s_dip_size;
+  s_scale = 0.0f;
+  s_dip_size = gfx::Size();
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_dip_size = dip_size;
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  // C-ABI passes DIP: 1280x720 at 1.5x
+  remote_->UpdateViewGeometry(
+      gfx::Size(1280, 720), 1.5f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FLOAT_EQ(s_scale, 1.5f);
+  // DIP values passed through unchanged.
+  EXPECT_EQ(s_dip_size.width(), 1280)
+      << "AC3: DIP width at 1.5x passed through";
+  EXPECT_EQ(s_dip_size.height(), 720)
+      << "AC3: DIP height at 1.5x passed through";
+}
+
+// [AC4] Happy path: UpdateViewGeometry stores client_scale_ as fallback.
+// When called twice with different scales, g_real_resize_func should receive
+// the updated scale each time (proving the stored scale is refreshed).
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryScaleChangePropagated) {
+  static float s_scale = 0.0f;
+  static int s_call_count = 0;
+  s_scale = 0.0f;
+  s_call_count = 0;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_scale = device_scale_factor;
+    s_call_count++;
+  };
+
+  // First call: scale=1.0
+  {
+    base::RunLoop run_loop;
+    remote_->UpdateViewGeometry(
+        gfx::Size(800, 600), 1.0f,
+        base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+    run_loop.Run();
+  }
+  EXPECT_FLOAT_EQ(s_scale, 1.0f);
+  EXPECT_EQ(s_call_count, 1);
+
+  // Second call: scale changes to 2.0 (e.g., window moved to Retina display)
+  {
+    base::RunLoop run_loop;
+    remote_->UpdateViewGeometry(
+        gfx::Size(1600, 1200), 2.0f,
+        base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+    run_loop.Run();
+  }
+  EXPECT_FLOAT_EQ(s_scale, 2.0f)
+      << "AC4: client_scale_ fallback should be updated to 2.0";
+  EXPECT_EQ(s_call_count, 2);
+}
+
+// [AC4] Boundary: UpdateViewGeometry with minimum valid scale (0.5).
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryMinScale) {
+  static float s_scale = 0.0f;
+  s_scale = 0.0f;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(800, 600), 0.5f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FLOAT_EQ(s_scale, 0.5f)
+      << "AC4: minimum valid scale should be stored and propagated";
+}
+
+// [AC4] Boundary: UpdateViewGeometry with maximum valid scale (4.0).
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryMaxScale) {
+  static float s_scale = 0.0f;
+  s_scale = 0.0f;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_scale = device_scale_factor;
+  };
+
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(800, 600), 4.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FLOAT_EQ(s_scale, 4.0f)
+      << "AC4: maximum valid scale should be stored and propagated";
+}
+
+// [AC5] Boundary: UpdateViewGeometry with invalid scale does NOT call resize.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryInvalidScaleSkipsResize) {
+  static bool s_called = false;
+  s_called = false;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_called = true;
+  };
+
+  // NaN scale should be rejected by IsGeometryValid.
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(800, 600), std::numeric_limits<float>::quiet_NaN(),
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FALSE(s_called)
+      << "AC5: resize func must not be called for NaN scale";
+}
+
+// [AC5] Boundary: UpdateViewGeometry with Inf scale does NOT call resize.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryInfScaleSkipsResize) {
+  static bool s_called = false;
+  s_called = false;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_called = true;
+  };
+
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(800, 600), std::numeric_limits<float>::infinity(),
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FALSE(s_called)
+      << "AC5: resize func must not be called for Inf scale";
+}
+
+// [AC5] Boundary: UpdateViewGeometry with zero-size does NOT call resize.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryZeroSizeSkipsResize) {
+  static bool s_called = false;
+  s_called = false;
+
+  g_real_resize_func = [](const gfx::Size& dip_size,
+                          float device_scale_factor) {
+    s_called = true;
+  };
+
+  base::RunLoop run_loop;
+  remote_->UpdateViewGeometry(
+      gfx::Size(0, 0), 2.0f,
+      base::BindOnce([](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_FALSE(s_called)
+      << "AC5: resize func must not be called for zero-size";
+}
+
+// [AC5] Boundary: UpdateViewGeometry callback fires even when geometry invalid.
+TEST_F(OWLWebContentsMojoTest, UpdateViewGeometryInvalidStillCallsBack) {
+  bool callback_fired = false;
+  base::RunLoop run_loop;
+  // Zero height is invalid.
+  remote_->UpdateViewGeometry(
+      gfx::Size(800, 0), 2.0f,
+      base::BindOnce(
+          [](bool* fired, base::RunLoop* loop) {
+            *fired = true;
+            loop->Quit();
+          },
+          &callback_fired, &run_loop));
+  run_loop.Run();
+
+  EXPECT_TRUE(callback_fired)
+      << "AC5: callback must fire even for invalid geometry";
+}
+
+// [AC1, AC2] Static validation: IsGeometryValid accepts exactly 2.0 (Retina).
+TEST(OWLWebContentsStaticTest, IsGeometryValidRetina2x) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(2560, 1600), 2.0f))
+      << "AC1: Retina 2.0x with typical MacBook Pro resolution must be valid";
+}
+
+// [AC1, AC2] Static validation: IsGeometryValid accepts 3.0 (iPad Pro-like).
+TEST(OWLWebContentsStaticTest, IsGeometryValid3x) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(2048, 2732), 3.0f))
+      << "AC1: 3.0x scale factor must be valid";
+}
+
+// [AC4] Static: boundary scale 0.5 (minimum) is accepted.
+TEST(OWLWebContentsStaticTest, IsGeometryValidMinBoundaryScale) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(100, 100), 0.5f))
+      << "AC4: minimum boundary scale 0.5 should be accepted as fallback";
+}
+
+// [AC4] Static: boundary scale 4.0 (maximum) is accepted.
+TEST(OWLWebContentsStaticTest, IsGeometryValidMaxBoundaryScale) {
+  EXPECT_TRUE(OWLWebContents::IsGeometryValid(gfx::Size(100, 100), 4.0f))
+      << "AC4: maximum boundary scale 4.0 should be accepted as fallback";
+}
+
+// [AC5] Static: negative scale is rejected.
+TEST(OWLWebContentsStaticTest, RejectsNegativeScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(gfx::Size(800, 600), -1.0f))
+      << "AC5: negative scale factor must be rejected";
+}
+
+// [AC5] Static: negative infinity scale is rejected.
+TEST(OWLWebContentsStaticTest, RejectsNegativeInfScaleFactor) {
+  EXPECT_FALSE(OWLWebContents::IsGeometryValid(
+      gfx::Size(800, 600), -std::numeric_limits<float>::infinity()))
+      << "AC5: -Inf scale factor must be rejected";
+}
+
+}  // namespace
+}  // namespace owl

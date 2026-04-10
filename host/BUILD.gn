@@ -1,0 +1,405 @@
+# Copyright 2026 AntlerAI. All rights reserved.
+# Use of this source code is governed by a BSD-style license.
+
+import("//build/config/mac/rules.gni")
+import("//content/public/app/mac_helpers.gni")
+import("//testing/test.gni")
+import("//tools/grit/repack.gni")
+import("//tools/v8_context_snapshot/v8_context_snapshot.gni")
+import("//v8/gni/v8.gni")
+
+owl_host_product_name = "OWL Host"
+owl_host_framework_name = "$owl_host_product_name Framework"
+owl_host_helper_name = "$owl_host_product_name Helper"
+
+# Core OWL Host library (no content/ deps).
+source_set("host") {
+  sources = [
+    "owl_bookmark_service.cc",
+    "owl_bookmark_service.h",
+    "owl_browser_context.cc",
+    "owl_browser_context.h",
+    "owl_browser_impl.cc",
+    "owl_browser_impl.h",
+    "owl_history_service.cc",
+    "owl_history_service.h",
+    "owl_permission_service_impl.cc",
+    "owl_permission_service_impl.h",
+    "owl_storage_service.cc",
+    "owl_storage_service.h",
+    "owl_web_contents.cc",
+    "owl_web_contents.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/download/public/common:public",
+    "//mojo/public/cpp/bindings",
+    "//sql",
+    "//third_party/owl/mojom",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+}
+
+# OWL Host content integration layer.
+source_set("host_content") {
+  sources = [
+    "owl_application_mac.h",
+    "owl_application_mac.mm",
+    "owl_browser_main_parts.cc",
+    "owl_browser_main_parts.h",
+    "owl_content_browser_client.cc",
+    "owl_content_browser_client.h",
+    "owl_login_delegate.cc",
+    "owl_login_delegate.h",
+    "owl_content_browser_context.cc",
+    "owl_content_browser_context.h",
+    "owl_context_menu_utils.cc",
+    "owl_context_menu_utils.h",
+    "owl_download_manager_delegate.mm",
+    "owl_download_manager_delegate.h",
+    "owl_download_service.cc",
+    "owl_download_service.h",
+    "owl_ssl_host_state_delegate.cc",
+    "owl_ssl_host_state_delegate.h",
+    "owl_permission_manager.cc",
+    "owl_permission_manager.h",
+    "owl_content_gpu_client.h",
+    "owl_content_renderer_client.h",
+    "owl_content_utility_client.h",
+    "owl_main_delegate.cc",
+    "owl_main_delegate.h",
+    "owl_paths_mac.h",
+    "owl_paths_mac.mm",
+    "owl_real_web_contents.mm",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "Foundation.framework",
+    "QuartzCore.framework",
+  ]
+
+  deps = [
+    ":host",
+    "//base",
+    "//components/download/public/common:public",
+    "//content/public/app",
+    "//content/public/browser",
+    "//content/public/common",
+    "//content/public/gpu",
+    "//content/public/renderer",
+    "//content/public/utility",
+    "//components/input",
+    "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//mojo/public/cpp/platform",
+    "//mojo/public/cpp/system",
+    "//skia",
+    "//third_party/blink/public/common",
+    "//third_party/owl/mojom",
+    "//ui/base",
+    "//ui/base/clipboard",
+    "//ui/display",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+}
+
+# OWL Host resource pak (non-testonly superset of content/shell:pak resources).
+# Includes Blink resources, DevTools, inspector overlay, and webui resources
+# needed for correct page rendering (user-agent stylesheet, etc.).
+repack("owl_host_pak") {
+  sources = [
+    "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/gpu_resources.pak",
+    "$root_gen_dir/content/process_resources.pak",
+    "$root_gen_dir/content/service_worker_resources.pak",
+    "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
+    "$root_gen_dir/net/net_resources.pak",
+    "$root_gen_dir/third_party/blink/public/resources/blink_resources.pak",
+    "$root_gen_dir/third_party/blink/public/resources/blink_scaled_resources_100_percent.pak",
+    "$root_gen_dir/third_party/blink/public/resources/inspector_overlay_resources.pak",
+    "$root_gen_dir/third_party/blink/public/strings/blink_strings_en-US.pak",
+    "$root_gen_dir/third_party/blink/public/strings/permission_element_generated_strings.pak",
+    "$root_gen_dir/third_party/blink/public/strings/permission_element_strings_en-US.pak",
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+    "$root_gen_dir/ui/strings/ax_strings_en-US.pak",
+    "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
+    "$root_gen_dir/ui/webui/resources/webui_resources.pak",
+    "$root_gen_dir/content/browser/devtools/devtools_resources.pak",
+  ]
+
+  deps = [
+    "//content:content_resources",
+    "//content/browser/devtools:devtools_resources",
+    "//content/browser/resources",
+    "//mojo/public/js:resources",
+    "//net:net_resources",
+    "//third_party/blink/public:devtools_inspector_resources",
+    "//third_party/blink/public:resources",
+    "//third_party/blink/public:scaled_resources_100_percent",
+    "//third_party/blink/public/strings",
+    "//third_party/blink/public/strings:permission_element_generated_strings",
+    "//third_party/blink/public/strings:permission_element_strings",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/webui/resources",
+  ]
+
+  output = "$root_out_dir/owl_host.pak"
+}
+
+# === macOS .app Bundle Mode ===
+
+# Framework — contains all OWL Host content integration code as a dylib.
+# Exports OWLContentMain() for the app/helper launchers to call via dlopen.
+mac_framework_bundle("owl_host_framework") {
+  output_name = owl_host_framework_name
+
+  framework_version = "A"
+
+  framework_contents = [
+    "Helpers",
+    "Libraries",
+    "Resources",
+  ]
+
+  sources = [
+    "owl_content_main.mm",
+  ]
+
+  deps = [
+    ":host_content",
+    "//content/public/app",
+    "//content/public/common",
+  ]
+
+  bundle_deps = [
+    ":owl_host_framework_angle_libraries",
+    ":owl_host_framework_helpers",
+    ":owl_host_framework_resources",
+    ":owl_host_framework_swiftshader_libraries",
+  ]
+
+  info_plist = "framework-Info.plist"
+
+  if (!is_component_build) {
+    ldflags = [ "-Wl,-install_name,@executable_path/../Frameworks/$output_name.framework/$output_name" ]
+  } else {
+    # Use rpath-based loading so both the main app and helpers can find it.
+    ldflags =
+        [ "-Wl,-install_name,@rpath/$output_name.framework/$output_name" ]
+
+    # rpath from framework dylib back to root output dir (for component dylibs).
+    # Framework dylib is at:
+    #   OWL Host.app/Contents/Frameworks/OWL Host Framework.framework/Versions/A/OWL Host Framework
+    ldflags += [ "-Wl,-rpath,@loader_path/../../../../../.." ]
+  }
+}
+
+# Resources → Framework bundle.
+bundle_data("owl_host_framework_resources") {
+  sources = [
+    "$root_out_dir/owl_host.pak",
+    "$root_out_dir/icudtl.dat",
+  ]
+
+  public_deps = [
+    ":owl_host_pak",
+    "//third_party/icu:icudata",
+  ]
+
+  if (v8_use_external_startup_data) {
+    public_deps += [ "//v8" ]
+    if (use_v8_context_snapshot) {
+      sources += [ "$root_out_dir/$v8_context_snapshot_filename" ]
+      public_deps += [ "//tools/v8_context_snapshot" ]
+    }
+    if (!use_v8_context_snapshot || include_both_v8_snapshots) {
+      sources += [ "$root_out_dir/snapshot_blob.bin" ]
+    }
+  }
+
+  outputs = [ "{{bundle_contents_dir}}/Resources/{{source_file_part}}" ]
+}
+
+# ANGLE libraries → Framework bundle (required by GPU process).
+bundle_data("owl_host_framework_angle_libraries") {
+  sources = [
+    "$root_out_dir/egl_intermediates/libEGL.dylib",
+    "$root_out_dir/egl_intermediates/libGLESv2.dylib",
+  ]
+  outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+  public_deps = [ "//ui/gl:angle_library_copy" ]
+}
+
+# SwiftShader libraries → Framework bundle.
+bundle_data("owl_host_framework_swiftshader_libraries") {
+  sources = [
+    "$root_out_dir/vk_intermediates/libvk_swiftshader.dylib",
+    "$root_out_dir/vk_intermediates/vk_swiftshader_icd.json",
+  ]
+  outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+  public_deps = [ "//ui/gl:swiftshader_vk_library_copy" ]
+}
+
+# Helper Apps → Framework bundle.
+bundle_data("owl_host_framework_helpers") {
+  sources = []
+  public_deps = []
+  foreach(helper_params, content_mac_helpers) {
+    sources +=
+        [ "$root_out_dir/${owl_host_helper_name}${helper_params[2]}.app" ]
+    public_deps += [ ":owl_host_helper_app_${helper_params[0]}" ]
+  }
+  outputs = [ "{{bundle_contents_dir}}/Helpers/{{source_file_part}}" ]
+}
+
+# Helper App template — thin dlopen launcher.
+template("owl_host_helper_app") {
+  mac_app_bundle(target_name) {
+    assert(defined(invoker.helper_name_suffix))
+    assert(defined(invoker.helper_bundle_id_suffix))
+
+    output_name = owl_host_helper_name + invoker.helper_name_suffix
+
+    sources = [ "owl_main_mac.cc" ]
+    defines = [
+      "HELPER_EXECUTABLE",
+      "OWL_PRODUCT_NAME=\"$owl_host_product_name\"",
+    ]
+
+    extra_substitutions = [
+      "OWL_HOST_HELPER_BUNDLE_ID_SUFFIX=${invoker.helper_bundle_id_suffix}",
+    ]
+
+    info_plist = "helper-Info.plist"
+
+    # Minimal deps — the launcher uses dlopen for content code.
+    # These deps don't pull in //base (see comments in their .cc files).
+    deps = [
+      "//base/allocator:early_zone_registration_apple",
+      "//sandbox/mac:seatbelt",
+    ]
+
+    if (is_component_build) {
+      ldflags = [
+        # Helper is at:
+        #   .../OWL Host Framework.framework/Versions/A/Helpers/
+        #     OWL Host Helper.app/Contents/MacOS/OWL Host Helper
+        # rpath to framework Versions/A/ directory:
+        "-Wl,-rpath,@executable_path/../../../../../../..",
+
+        # rpath to root output dir for component dylibs:
+        "-Wl,-rpath,@executable_path/../../../../../../../../../..",
+      ]
+      deps += [ ":owl_host_framework+link_nested" ]
+    }
+  }
+}
+
+# Instantiate all helper variants from content_mac_helpers.
+foreach(helper_params, content_mac_helpers) {
+  _helper_target = helper_params[0]
+  _helper_bundle_id = helper_params[1]
+  _helper_suffix = helper_params[2]
+  owl_host_helper_app("owl_host_helper_app_${_helper_target}") {
+    helper_name_suffix = _helper_suffix
+    helper_bundle_id_suffix = _helper_bundle_id
+  }
+}
+
+# Framework → main App bundle.
+bundle_data("owl_host_framework_bundle_data") {
+  sources = [ "$root_out_dir/$owl_host_framework_name.framework" ]
+  outputs = [ "{{bundle_contents_dir}}/Frameworks/{{source_file_part}}" ]
+  if (is_component_build) {
+    public_deps = [ ":owl_host_framework+link" ]
+  } else {
+    public_deps = [ ":owl_host_framework" ]
+  }
+}
+
+# Main App Bundle — thin dlopen launcher.
+mac_app_bundle("owl_host_app") {
+  output_name = owl_host_product_name
+
+  sources = [ "owl_main_mac.cc" ]
+  defines = [ "OWL_PRODUCT_NAME=\"$owl_host_product_name\"" ]
+
+  deps = [
+    ":owl_host_framework_bundle_data",
+    "//base/allocator:early_zone_registration_apple",
+  ]
+
+  info_plist = "app-Info.plist"
+
+  if (is_component_build) {
+    ldflags = [ "-Wl,-rpath,@executable_path/../Frameworks" ]
+  }
+}
+
+# === Bare Executable (dev/test, no bundle) ===
+# Used with --in-process-gpu and --browser-subprocess-path for existing tests.
+executable("owl_host") {
+  sources = [ "owl_host_main.mm" ]
+
+  deps = [
+    ":host_content",
+    "//content/public/app",
+  ]
+}
+
+# Unit tests.
+test("owl_host_unittests") {
+  sources = [
+    "owl_bookmark_service_unittest.cc",
+    "owl_bridge_download_cabi_unittest.cc",
+    "owl_browser_context_unittest.cc",
+    "owl_browser_impl_unittest.cc",
+    "owl_context_menu_unittest.cc",
+    "owl_download_service_unittest.cc",
+    "owl_history_service_unittest.cc",
+    "owl_main_delegate_unittest.cc",
+    "owl_paths_mac_unittest.mm",
+    "owl_permission_manager_unittest.cc",
+    "owl_permission_service_unittest.cc",
+    "owl_ssl_host_state_delegate_unittest.cc",
+    "owl_storage_service_unittest.cc",
+    "owl_web_contents_unittest.cc",
+  ]
+
+  frameworks = [
+    "Foundation.framework",
+  ]
+
+  deps = [
+    ":host",
+    ":host_content",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//components/download/public/common:test_support",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//mojo/core/embedder",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/platform",
+    "//net",
+    "//net:test_support",
+    "//sql",
+    "//sql:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/owl/bridge:owl_bridge_c_api",
+    "//third_party/owl/mojom",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+}

@@ -1,0 +1,20 @@
+# Copyright 2026 AntlerAI. All rights reserved.
+
+group("owl_tests") {
+  testonly = true
+  deps = [
+    "//third_party/owl/bridge:owl_bridge_unittests",
+    "//third_party/owl/client:owl_client_unittests",
+    "//third_party/owl/host:owl_host_unittests",
+  ]
+}
+
+# All OWL targets including framework.
+group("owl_all") {
+  testonly = true
+  deps = [
+    ":owl_tests",
+    "//third_party/owl/bridge:OWLBridge",
+    "//third_party/owl/host:owl_host",
+  ]
+}

@@ -1,0 +1,18 @@
+include_rules = [
+  "+content/public",
+  "+ui/gfx",
+  "+ui/aura",
+  "+ui/base",
+  "+ui/events",
+  "+ui/display",
+  "+components/viz/host",
+  "+mojo/public",
+  "+net/base",
+  "+url",
+  "+third_party/owl/mojom",
+
+  # Explicitly disallow internal Chromium implementation details.
+  "-content/browser",
+  "-components/viz/service",
+  "-chrome",
+]

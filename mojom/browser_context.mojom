@@ -1,0 +1,41 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+module owl.mojom;
+
+import "third_party/owl/mojom/bookmarks.mojom";
+import "third_party/owl/mojom/downloads.mojom";
+import "third_party/owl/mojom/history.mojom";
+import "third_party/owl/mojom/owl_types.mojom";
+import "third_party/owl/mojom/permissions.mojom";
+import "third_party/owl/mojom/storage.mojom";
+import "third_party/owl/mojom/web_view.mojom";
+
+// BrowserContext 管理接口
+interface BrowserContextHost {
+  // 创建 WebView（每个标签页一个）
+  // Returns webview_id (Host-assigned, monotonically increasing) and the WebViewHost pipe.
+  CreateWebView(pending_remote<WebViewObserver> observer)
+      => (uint64 webview_id, pending_remote<WebViewHost> web_view);
+
+  // 获取 BookmarkService（per-context，lazy create）
+  GetBookmarkService() => (pending_remote<BookmarkService> service);
+
+  // 获取 HistoryService（per-context，lazy create）
+  GetHistoryService() => (pending_remote<HistoryService> service);
+
+  // 获取 PermissionService（per-context，lazy create）
+  GetPermissionService() => (pending_remote<PermissionService> service);
+
+  // 获取 DownloadService（per-context，lazy bind，可能不可用）
+  GetDownloadService() => (pending_remote<DownloadService>? service);
+
+  // 获取 StorageService（per-context，lazy create）
+  GetStorageService() => (pending_remote<StorageService> service);
+
+  // 注册下载观察者（推送下载状态变化）
+  SetDownloadObserver(pending_remote<DownloadObserver> observer);
+
+  // 异步销毁（级联关闭所有 WebView）
+  Destroy() => ();
+};

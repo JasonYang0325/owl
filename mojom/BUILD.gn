@@ -1,0 +1,25 @@
+# Copyright 2026 AntlerAI. All rights reserved.
+# Use of this source code is governed by a BSD-style license.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("mojom") {
+  sources = [
+    "bookmarks.mojom",
+    "browser_context.mojom",
+    "downloads.mojom",
+    "history.mojom",
+    "owl_input_types.mojom",
+    "owl_types.mojom",
+    "permissions.mojom",
+    "session.mojom",
+    "storage.mojom",
+    "web_view.mojom",
+  ]
+
+  public_deps = [
+    "//mojo/public/mojom/base",
+    "//ui/gfx/geometry/mojom",
+    "//url/mojom:url_mojom_gurl",
+  ]
+}

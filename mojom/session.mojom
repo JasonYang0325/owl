@@ -1,0 +1,28 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+module owl.mojom;
+
+import "third_party/owl/mojom/owl_types.mojom";
+import "third_party/owl/mojom/browser_context.mojom";
+
+// Host → Client 事件通知
+interface SessionObserver {
+  OnShutdown();
+};
+
+// Client → Host 控制接口
+interface SessionHost {
+  // 获取当前 Host 配置（只读，配置通过命令行传入）
+  GetHostInfo() => (string version, string user_data_dir, uint16 devtools_port);
+
+  // Create browser context. Returns null on failure (invalid config, shutting down).
+  CreateBrowserContext(ProfileConfig config)
+      => (pending_remote<BrowserContextHost>? context);
+
+  // 注册事件观察者
+  SetObserver(pending_remote<SessionObserver> observer);
+
+  // 优雅关闭（异步，级联销毁所有 BrowserContext）
+  Shutdown() => ();
+};

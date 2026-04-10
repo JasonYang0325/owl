@@ -1,0 +1,48 @@
+# OWLBridge exported symbols - ObjC classes only
+# Bridge layer
+_OBJC_CLASS_$_OWLBridgeSession
+_OBJC_CLASS_$_OWLBridgeBrowserContext
+_OBJC_CLASS_$_OWLBridgeWebView
+_OBJC_CLASS_$_OWLProcessLauncher
+_OBJC_CLASS_$_OWLLaunchResult
+_OBJC_CLASS_$_OWLMojoThread
+_OBJC_CLASS_$_OWLNavigationResult
+_OBJC_CLASS_$_OWLPageInfo
+_OBJC_CLASS_$_OWLRenderSurface
+# Client layer
+_OBJC_CLASS_$_OWLTab
+_OBJC_CLASS_$_OWLTabManager
+_OBJC_CLASS_$_OWLWebContentView
+_OBJC_CLASS_$_OWLInputTranslator
+_OBJC_CLASS_$_OWLAddressBarController
+_OBJC_CLASS_$_OWLShortcutManager
+_OBJC_CLASS_$_OWLAIMessage
+_OBJC_CLASS_$_OWLAIChatSession
+_OBJC_CLASS_$_OWLAgentSession
+_OBJC_CLASS_$_OWLAgentTask
+_OBJC_CLASS_$_OWLMemoryEntry
+_OBJC_CLASS_$_OWLBrowserMemory
+# Metaclass symbols
+_OBJC_METACLASS_$_OWLBridgeSession
+_OBJC_METACLASS_$_OWLBridgeBrowserContext
+_OBJC_METACLASS_$_OWLBridgeWebView
+_OBJC_METACLASS_$_OWLProcessLauncher
+_OBJC_METACLASS_$_OWLLaunchResult
+_OBJC_METACLASS_$_OWLMojoThread
+_OBJC_METACLASS_$_OWLNavigationResult
+_OBJC_METACLASS_$_OWLPageInfo
+_OBJC_METACLASS_$_OWLRenderSurface
+_OBJC_METACLASS_$_OWLTab
+_OBJC_METACLASS_$_OWLTabManager
+_OBJC_METACLASS_$_OWLWebContentView
+_OBJC_METACLASS_$_OWLInputTranslator
+_OBJC_METACLASS_$_OWLAddressBarController
+_OBJC_METACLASS_$_OWLShortcutManager
+_OBJC_METACLASS_$_OWLAIMessage
+_OBJC_METACLASS_$_OWLAIChatSession
+_OBJC_METACLASS_$_OWLAgentSession
+_OBJC_METACLASS_$_OWLAgentTask
+_OBJC_METACLASS_$_OWLMemoryEntry
+_OBJC_METACLASS_$_OWLBrowserMemory
+# C-ABI Permission functions
+_OWLBridge_PermissionSet

@@ -1,0 +1,134 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+#include "third_party/owl/host/owl_browser_context.h"
+
+#include "base/run_loop.h"
+#include "base/test/task_environment.h"
+#include "mojo/core/embedder/embedder.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/platform/platform_handle.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/owl/mojom/browser_context.mojom.h"
+#include "third_party/owl/mojom/web_view.mojom.h"
+
+namespace owl {
+namespace {
+
+class MojoInitializer {
+ public:
+  MojoInitializer() {
+    static bool initialized = false;
+    if (!initialized) {
+      mojo::core::Init();
+      initialized = true;
+    }
+  }
+};
+static MojoInitializer g_mojo_init;
+
+class MockWebViewObserver : public owl::mojom::WebViewObserver {
+ public:
+  void OnPageInfoChanged(owl::mojom::PageInfoPtr info) override {}
+  void OnUnhandledKeyEvent(owl::mojom::KeyEventPtr event) override {}
+  void OnCursorChanged(owl::mojom::CursorType cursor_type) override {}
+  void OnCaretRectChanged(const gfx::Rect& caret_rect) override {}
+  void OnFindReply(int32_t request_id, int32_t number_of_matches,
+                   int32_t active_match_ordinal, bool final_update) override {}
+  void OnZoomLevelChanged(double new_level) override {}
+  void OnLoadFinished(bool success) override {}
+  void OnRenderSurfaceChanged(uint32_t ca_context_id,
+                              mojo::PlatformHandle io_surface_mach_port,
+                              const gfx::Size& pixel_size,
+                              float scale_factor) override {}
+};
+
+class OWLBrowserContextTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    context_ = std::make_unique<OWLBrowserContext>(
+        "test", false, base::FilePath(),
+        base::BindOnce(
+            [](bool* flag, OWLBrowserContext*) { *flag = true; },
+            &destroyed_flag_));
+    context_->Bind(remote_.BindNewPipeAndPassReceiver());
+  }
+
+  base::test::SingleThreadTaskEnvironment task_environment_;
+  std::unique_ptr<OWLBrowserContext> context_;
+  mojo::Remote<owl::mojom::BrowserContextHost> remote_;
+  bool destroyed_flag_ = false;
+};
+
+TEST_F(OWLBrowserContextTest, PartitionNameIsStored) {
+  EXPECT_EQ(context_->partition_name(), "test");
+}
+
+TEST_F(OWLBrowserContextTest, OffTheRecordIsStored) {
+  EXPECT_FALSE(context_->off_the_record());
+}
+
+TEST_F(OWLBrowserContextTest, CreateWebViewSucceeds) {
+  mojo::PendingRemote<owl::mojom::WebViewObserver> observer_remote;
+  auto observer = std::make_unique<MockWebViewObserver>();
+  mojo::Receiver<owl::mojom::WebViewObserver> observer_receiver(
+      observer.get(), observer_remote.InitWithNewPipeAndPassReceiver());
+
+  base::RunLoop run_loop;
+  remote_->CreateWebView(
+      std::move(observer_remote),
+      base::BindOnce(
+          [](base::RunLoop* loop,
+             mojo::PendingRemote<owl::mojom::WebViewHost> web_view) {
+            EXPECT_TRUE(web_view.is_valid());
+            loop->Quit();
+          },
+          &run_loop));
+  run_loop.Run();
+
+  EXPECT_EQ(context_->web_view_count(), 1u);
+}
+
+TEST_F(OWLBrowserContextTest, DestroyClosesAllWebViews) {
+  // Keep observers and web view remotes alive to prevent disconnect cleanup.
+  std::vector<std::unique_ptr<MockWebViewObserver>> observers;
+  std::vector<std::unique_ptr<mojo::Receiver<owl::mojom::WebViewObserver>>>
+      observer_receivers;
+  std::vector<mojo::Remote<owl::mojom::WebViewHost>> web_view_remotes;
+
+  for (int i = 0; i < 2; ++i) {
+    mojo::PendingRemote<owl::mojom::WebViewObserver> observer_remote;
+    auto observer = std::make_unique<MockWebViewObserver>();
+    auto receiver = std::make_unique<mojo::Receiver<owl::mojom::WebViewObserver>>(
+        observer.get(), observer_remote.InitWithNewPipeAndPassReceiver());
+
+    base::RunLoop run_loop;
+    remote_->CreateWebView(
+        std::move(observer_remote),
+        base::BindOnce(
+            [](std::vector<mojo::Remote<owl::mojom::WebViewHost>>* vec,
+               base::RunLoop* loop,
+               mojo::PendingRemote<owl::mojom::WebViewHost> web_view) {
+              vec->emplace_back(std::move(web_view));
+              loop->Quit();
+            },
+            &web_view_remotes, &run_loop));
+    run_loop.Run();
+
+    observers.push_back(std::move(observer));
+    observer_receivers.push_back(std::move(receiver));
+  }
+
+  EXPECT_EQ(context_->web_view_count(), 2u);
+
+  // Destroy should close all web views.
+  base::RunLoop run_loop;
+  remote_->Destroy(base::BindOnce(
+      [](base::RunLoop* loop) { loop->Quit(); }, &run_loop));
+  run_loop.Run();
+
+  EXPECT_EQ(context_->web_view_count(), 0u);
+}
+
+}  // namespace
+}  // namespace owl

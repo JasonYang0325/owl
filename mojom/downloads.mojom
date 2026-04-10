@@ -1,0 +1,40 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+module owl.mojom;
+
+enum DownloadState {
+  kInProgress,
+  kPaused,
+  kComplete,
+  kCancelled,
+  kInterrupted,
+};
+
+struct DownloadItem {
+  uint32 id;
+  string url;
+  string filename;
+  string mime_type;
+  int64 total_bytes;
+  int64 received_bytes;
+  int64 speed_bytes_per_sec;
+  DownloadState state;
+  string? error_description;
+  bool can_resume;
+  string target_path;
+};
+
+interface DownloadService {
+  GetAll() => (array<DownloadItem> items);
+  Pause(uint32 download_id);
+  Resume(uint32 download_id);
+  Cancel(uint32 download_id);
+  RemoveEntry(uint32 download_id);
+  OpenFile(uint32 download_id);
+  ShowInFolder(uint32 download_id);
+};
+
+interface DownloadObserver {
+  OnDownloadCreated(DownloadItem item);
+  OnDownloadUpdated(DownloadItem item);
+  OnDownloadRemoved(uint32 download_id);
+};

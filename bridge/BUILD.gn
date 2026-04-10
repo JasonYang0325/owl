@@ -1,0 +1,230 @@
+# Copyright 2026 AntlerAI. All rights reserved.
+# Use of this source code is governed by a BSD-style license.
+
+import("//testing/test.gni")
+
+# Make ObjC symbols visible for framework export.
+config("owl_objc_visibility") {
+  cflags_objcc = [ "-fvisibility=default" ]
+}
+
+# ObjC++ Bridge types (no Mojo dependency).
+source_set("types") {
+  configs += [ ":owl_objc_visibility" ]
+  sources = [
+    "OWLBridgeTypes.h",
+    "OWLBridgeTypes.mm",
+  ]
+
+  frameworks = [ "Foundation.framework" ]
+
+  deps = [ "//base" ]
+}
+
+# Mojo IO thread singleton.
+source_set("mojo_thread") {
+  configs += [ ":owl_objc_visibility" ]
+  sources = [
+    "OWLMojoThread.h",
+    "OWLMojoThread.mm",
+  ]
+
+  frameworks = [ "Foundation.framework" ]
+
+  deps = [
+    "//base",
+    "//mojo/core/embedder",
+  ]
+}
+
+# ObjC++ Bridge session/context/webview.
+source_set("launcher") {
+  configs += [ ":owl_objc_visibility" ]
+  sources = [
+    "OWLProcessLauncher.h",
+    "OWLProcessLauncher.mm",
+  ]
+
+  frameworks = [ "Foundation.framework" ]
+
+  deps = [
+    ":bridge",
+    ":mojo_thread",
+    "//base",
+    "//mojo/public/cpp/platform",
+    "//mojo/public/cpp/system",
+  ]
+}
+
+source_set("bridge") {
+  configs += [ ":owl_objc_visibility" ]
+  sources = [
+    "OWLBridgeBrowserContext.h",
+    "OWLBridgeBrowserContext.mm",
+    "OWLBridgeSession.h",
+    "OWLBridgeSession.mm",
+    "OWLBridgeWebView.h",
+    "OWLBridgeWebView.mm",
+    "OWLRemoteLayerView.h",
+    "OWLRemoteLayerView.mm",
+  ]
+
+  frameworks = [ "AppKit.framework", "Foundation.framework", "QuartzCore.framework" ]
+
+  deps = [
+    ":mojo_thread",
+    ":types",
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/platform",
+    "//mojo/public/cpp/system",
+    "//third_party/owl/mojom",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+}
+
+# C-ABI bridge for Swift (modeled after Atlas's OwlBridge).
+source_set("owl_bridge_c_api") {
+  sources = [
+    "owl_bridge_api.cc",
+    "owl_bridge_api.h",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/core/embedder",
+    "//mojo/public/c/system",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/platform",
+    "//mojo/public/cpp/system",
+    "//third_party/owl/mojom",
+    "//url",
+  ]
+
+  frameworks = [
+    "Foundation.framework",
+  ]
+}
+
+# ──────────────────────────────────────────────────────────────────
+# OWLBridge.framework — precompiled framework for Swift client app.
+# Build: ninja -C out/owl-host third_party/owl/bridge:OWLBridge
+# ──────────────────────────────────────────────────────────────────
+
+import("//build/config/mac/rules.gni")
+
+mac_framework_bundle("OWLBridge") {
+  framework_version = "A"
+  framework_contents = [
+    "Headers",
+    "Modules",
+  ]
+
+  info_plist = "//third_party/owl/bridge/Info.plist"
+
+  sources = []
+
+  deps = [
+    ":bridge",
+    ":launcher",
+    ":mojo_thread",
+    ":owl_bridge_c_api",
+    ":owl_bridge_headers",
+    ":owl_bridge_modulemap",
+    ":types",
+    "//third_party/owl/client",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "Carbon.framework",
+    "Foundation.framework",
+    "QuartzCore.framework",
+  ]
+
+  # Override Chromium's default -fvisibility=hidden for ObjC++ classes.
+  # ObjC @interface symbols must be visible for Swift import.
+  cflags_objcc = [ "-fvisibility=default" ]
+
+  ldflags = [
+    "-install_name",
+    "@rpath/OWLBridge.framework/Versions/A/OWLBridge",
+  ]
+}
+
+# Public headers for OWLBridge.framework
+bundle_data("owl_bridge_headers") {
+  sources = [
+    # Bridge layer
+    "OWLBridgeBrowserContext.h",
+    "OWLBridgeSession.h",
+    "OWLBridgeTypes.h",
+    "OWLBridgeWebView.h",
+    "OWLMojoThread.h",
+    "OWLProcessLauncher.h",
+    "OWLRemoteLayerView.h",
+    "owl_bridge_api.h",
+
+    # Client layer
+    "//third_party/owl/client/OWLAIChatSession.h",
+    "//third_party/owl/client/OWLAIMessage.h",
+    "//third_party/owl/client/OWLAddressBarController.h",
+    "//third_party/owl/client/OWLAgentSession.h",
+    "//third_party/owl/client/OWLBrowserMemory.h",
+    "//third_party/owl/client/OWLInputTranslator.h",
+    "//third_party/owl/client/OWLShortcutManager.h",
+    "//third_party/owl/client/OWLTab.h",
+    "//third_party/owl/client/OWLTabManager.h",
+    "//third_party/owl/client/OWLWebContentView.h",
+  ]
+
+  outputs = [ "{{bundle_contents_dir}}/Headers/{{source_file_part}}" ]
+}
+
+# Module map for Swift import
+bundle_data("owl_bridge_modulemap") {
+  sources = [ "module.modulemap" ]
+  outputs = [ "{{bundle_contents_dir}}/Modules/{{source_file_part}}" ]
+}
+
+# Unit tests.
+test("owl_bridge_unittests") {
+  sources = [
+    "owl_bridge_browser_context_unittest.mm",
+    "owl_bridge_console_unittest.mm",
+    "owl_bridge_download_unittest.mm",
+    "owl_bridge_memory_safety_unittest.mm",
+    "owl_bridge_navigation_unittest.mm",
+    "owl_bridge_permission_unittest.mm",
+    "owl_bridge_session_unittest.mm",
+    "owl_bridge_types_unittest.mm",
+    "owl_bridge_web_view_unittest.mm",
+    "owl_mojo_thread_unittest.mm",
+    "owl_process_launcher_unittest.mm",
+    "owl_remote_layer_view_unittest.mm",
+  ]
+
+  deps = [
+    ":bridge",
+    ":launcher",
+    ":mojo_thread",
+    ":owl_bridge_c_api",
+    ":types",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//mojo/core/embedder",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//testing/gtest",
+    "//third_party/owl/host",
+    "//third_party/owl/mojom",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "Foundation.framework",
+    "QuartzCore.framework",
+  ]
+}

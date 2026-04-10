@@ -1,0 +1,30 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+module owl.mojom;
+
+import "mojo/public/mojom/base/time.mojom";
+
+struct HistoryEntry {
+  int64 id;
+  string url;
+  string title;
+  mojo_base.mojom.Time visit_time;
+  mojo_base.mojom.Time last_visit_time;
+  int32 visit_count;
+};
+
+interface HistoryService {
+  AddVisit(string url, string title) => (bool success);
+  QueryByTime(string search_query, int32 max_results, int32 offset)
+      => (array<HistoryEntry> entries, int32 total);
+  QueryByVisitCount(string search_query, int32 max_results)
+      => (array<HistoryEntry> entries);
+  Delete(string url) => (bool success);
+  DeleteRange(mojo_base.mojom.Time start, mojo_base.mojom.Time end)
+      => (int32 deleted_count);
+  Clear() => (bool success);
+  SetObserver(pending_remote<HistoryObserver> observer);
+};
+
+interface HistoryObserver {
+  OnHistoryChanged(string url);
+};

@@ -1,0 +1,76 @@
+# Copyright 2026 AntlerAI. All rights reserved.
+# Use of this source code is governed by a BSD-style license.
+
+import("//testing/test.gni")
+
+source_set("client") {
+  configs += [ "//third_party/owl/bridge:owl_objc_visibility" ]
+  sources = [
+    "OWLAIChatSession.h",
+    "OWLAIChatSession.mm",
+    "OWLAIMessage.h",
+    "OWLAIMessage.mm",
+    "OWLAddressBarController.h",
+    "OWLAddressBarController.mm",
+    "OWLAgentSession.h",
+    "OWLAgentSession.mm",
+    "OWLBrowserMemory.h",
+    "OWLBrowserMemory.mm",
+    "OWLInputTranslator.h",
+    "OWLInputTranslator.mm",
+    "OWLShortcutManager.h",
+    "OWLShortcutManager.mm",
+    "OWLTab.h",
+    "OWLTab.mm",
+    "OWLTabManager.h",
+    "OWLTabManager.mm",
+    "OWLWebContentView.h",
+    "OWLWebContentView.mm",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "Carbon.framework",
+    "QuartzCore.framework",
+  ]
+
+  deps = [
+    "//base",
+    "//third_party/owl/bridge",
+    "//third_party/owl/bridge:types",
+  ]
+}
+
+test("owl_client_unittests") {
+  sources = [
+    "owl_agent_session_unittest.mm",
+    "owl_ai_chat_session_unittest.mm",
+    "owl_address_bar_controller_unittest.mm",
+    "owl_browser_memory_unittest.mm",
+    "owl_input_translator_unittest.mm",
+    "owl_shortcut_manager_unittest.mm",
+    "owl_tab_manager_unittest.mm",
+    "owl_web_content_view_unittest.mm",
+  ]
+
+  deps = [
+    ":client",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//mojo/core/embedder",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//testing/gtest",
+    "//third_party/owl/bridge",
+    "//third_party/owl/bridge:owl_bridge_c_api",
+    "//third_party/owl/bridge:mojo_thread",
+    "//third_party/owl/host:host_content",
+    "//third_party/owl/mojom",
+  ]
+
+  frameworks = [
+    "AppKit.framework",
+    "QuartzCore.framework",
+  ]
+}

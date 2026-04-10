@@ -1,0 +1,258 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+// Use of this source code is governed by a BSD-style license.
+
+module owl.mojom;
+
+import "third_party/owl/mojom/owl_input_types.mojom";
+import "third_party/owl/mojom/owl_types.mojom";
+import "third_party/owl/mojom/permissions.mojom";
+import "url/mojom/url.mojom";
+import "ui/gfx/geometry/mojom/geometry.mojom";
+
+// Context menu type (priority: kEditable > kLink > kImage > kSelection > kPage).
+enum ContextMenuType {
+  kPage,         // Blank area (no link, image, selection, or editable)
+  kLink,         // Right-clicked on a link
+  kImage,        // Right-clicked on an image
+  kSelection,    // Text is selected
+  kEditable,     // Input field / contentEditable
+};
+
+// Context menu action.
+enum ContextMenuAction {
+  kCopyLink,
+  kCopyImage,
+  kSaveImage,
+  kCopy,
+  kCut,
+  kPaste,
+  kSelectAll,
+  kOpenLinkInNewTab,  // Phase 2: navigate link in current tab (single-tab mode).
+  kSearch,            // Phase 2: search selected text via default search engine.
+  kCopyImageUrl,      // Phase 3: copy image address (src_url) to clipboard.
+  kViewSource,        // Phase 3: view page source (view-source: URL).
+};
+
+// Context menu parameters sent from Host to Client.
+struct ContextMenuParams {
+  ContextMenuType type;
+  bool is_editable;
+  string? link_url;
+  string? src_url;
+  bool has_image_contents;
+  string? selection_text;  // Truncated to 10KB by Host.
+  string page_url;
+  int32 x;  // DIP, view-local.
+  int32 y;  // DIP, view-local.
+  uint32 menu_id;  // Incremented on navigation; client uses to discard stale menus.
+};
+
+// Navigation event for lifecycle callbacks (main frame only).
+// url is truncated to 2KB by Host.
+struct NavigationEvent {
+  int64 navigation_id;
+  string url;
+  bool is_user_initiated;
+  bool is_redirect;
+  int32 http_status_code;  // 0 for Started/Redirect
+};
+
+// Console message severity level (maps from blink::mojom::ConsoleMessageLevel).
+enum ConsoleLevel {
+  kVerbose,
+  kInfo,
+  kWarning,
+  kError,
+};
+
+// Console message captured from renderer (main frame only).
+// message + stack_trace are merged and truncated to 10KB by Host.
+struct ConsoleMessage {
+  ConsoleLevel level;
+  string message;       // Truncated to 10KB; includes stack trace if present.
+  string source;        // Source file URL.
+  int32 line_number;    // Line number, 0 means unknown.
+  double timestamp;     // Seconds since Unix epoch.
+};
+
+// Host → Client 通知（合并了合成层事件）
+interface WebViewObserver {
+  // 页面信息变化
+  OnPageInfoChanged(PageInfo info);
+
+  // 页面加载完成
+  OnLoadFinished(bool success);
+
+  // Unhandled key event (renderer did not preventDefault).
+  OnUnhandledKeyEvent(KeyEvent event);
+
+  // Cursor type changed (renderer notified browser via RWHV).
+  OnCursorChanged(CursorType cursor_type);
+
+  // 查找结果（增量推送，final_update=false 时可能后续还有更新）。
+  OnFindReply(int32 request_id, int32 number_of_matches,
+              int32 active_match_ordinal, bool final_update);
+
+  // Zoom level changed (HostZoomMap notification).
+  OnZoomLevelChanged(double new_level);
+
+  // IME caret rect changed (view-local DIP, top-left origin).
+  // Client caches this for firstRectForCharacterRange: (IME candidate positioning).
+  OnCaretRectChanged(gfx.mojom.Rect caret_rect);
+
+  // Permission request notification. Host sends this when Chromium triggers
+  // RequestPermissions. Client must call WebViewHost.RespondToPermissionRequest
+  // to respond. If client times out or pipe disconnects, Host auto-DENYs.
+  OnPermissionRequest(string origin,
+                      PermissionType permission_type,
+                      uint64 request_id);
+
+  // SSL certificate error notification. Host detects cert error and sends this.
+  // Client must call WebViewHost.RespondToSSLError to respond.
+  // If client does not respond, the error page remains displayed.
+  OnSSLError(string url,
+             string cert_subject,
+             string error_description,
+             uint64 error_id);
+
+  // Security state changed notification (pushed after each navigation commit).
+  // level: 0=Secure, 1=Info, 2=Warning, 3=Dangerous
+  // cert_subject: certificate CN, empty string if no certificate.
+  // error_description: net error string, empty string if no error.
+  OnSecurityStateChanged(int32 level,
+                         string cert_subject,
+                         string error_description);
+
+  // Context menu request. Host extracts params from Chromium's ContextMenuParams
+  // and forwards to client. Client builds and displays NSMenu locally.
+  OnContextMenu(ContextMenuParams params);
+
+  // Phase 3: Copy-image async result.
+  // success=true: image data written to NSPasteboard by Host.
+  // success=false: image download failed; fallback_url is the src_url for
+  //   client-side "copy URL" degradation.
+  OnCopyImageResult(bool success, string? fallback_url);
+
+  // Navigation lifecycle events (main frame only, excludes same-document).
+  // Started fires for initial navigation and redirects (is_redirect=true).
+  OnNavigationStarted(NavigationEvent event);
+  // Committed fires after successful commit (non-error, non-same-document).
+  OnNavigationCommitted(NavigationEvent event);
+  // Failed fires on navigation error (non-certificate errors only).
+  OnNavigationFailed(int64 navigation_id, string url,
+                     int32 error_code, string error_description);
+
+  // HTTP authentication challenge notification (Phase 3).
+  // Host sends this when Chromium triggers CreateLoginDelegate for main frame.
+  // Client must call WebViewHost.RespondToAuthChallenge to respond.
+  // If LoginDelegate is destroyed (e.g. navigation away), challenge is
+  // automatically cancelled — client should dismiss any auth dialog.
+  // auth_id: unique ID for this challenge, pass back via RespondToAuthChallenge.
+  // is_proxy: true for 407 Proxy-Authenticate, false for 401 WWW-Authenticate.
+  OnAuthRequired(string url, string realm, string scheme,
+                 uint64 auth_id, bool is_proxy);
+
+  // Console message from renderer (main frame only).
+  // message is truncated to 10KB by Host (includes stack trace if present).
+  OnConsoleMessage(ConsoleMessage message);
+
+  // 合成层渲染表面变化。
+  // ca_context_id != 0 时使用 remote CoreAnimation，否则使用 io_surface_mach_port。
+  OnRenderSurfaceChanged(uint32 ca_context_id,
+                         handle<platform>? io_surface_mach_port,
+                         gfx.mojom.Size pixel_size,
+                         float scale_factor);
+
+  // New tab requested (target="_blank", Cmd+Click, or window.open with user gesture).
+  // url: target URL for the new tab.
+  // foreground: true=activate immediately (NEW_FOREGROUND_TAB), false=background.
+  OnNewTabRequested(string url, bool foreground);
+
+  // Host requests client to close this WebView (e.g., window.close()).
+  // Client should call WebViewHost.Close() or destroy the pipe in response.
+  OnWebViewCloseRequested();
+};
+
+// Client → Host 控制
+interface WebViewHost {
+  // 导航（Host 校验 URL scheme：允许 https/http/data，禁止 file/chrome/devtools）
+  Navigate(url.mojom.Url url) => (NavigationResult result);
+  GoBack() => ();
+  GoForward() => ();
+  Reload() => ();
+  Stop() => ();
+
+  // 内容获取（Host 截断上限 1MB）
+  GetPageContent() => (string content_text);
+  GetPageInfo() => (PageInfo info);
+
+  // 视图几何（同时驱动 content viewport 和 compositor 输出）
+  // 校验：size [1,16384] per dim, scale_factor [0.5,4.0]
+  UpdateViewGeometry(gfx.mojom.Size size_in_dips,
+                     float device_scale_factor) => ();
+  SetVisible(bool visible) => ();
+
+  // Input events (Phase 27). Fire-and-forget (no ack) — 60Hz+ events.
+  SendMouseEvent(MouseEvent event);
+  SendKeyEvent(KeyEvent event);
+  SendWheelEvent(WheelEvent event);
+
+  // IME events (Phase 31). Fire-and-forget.
+  // replacement_start/end: -1 = InvalidRange (no replacement).
+  SendImeSetComposition(string text,
+                        int32 selection_start, int32 selection_end,
+                        int32 replacement_start, int32 replacement_end);
+  SendImeCommitText(string text,
+                    int32 replacement_start, int32 replacement_end);
+  SendImeFinishComposing();
+
+  // 页面内查找。返回此次查找的 request_id，结果通过 OnFindReply 推送。
+  // 空 query 由 Host 拦截，返回 request_id=0。
+  Find(string query, bool forward, bool match_case) => (int32 request_id);
+
+  // 停止查找。fire-and-forget。
+  StopFinding(StopFindAction action);
+
+  // Zoom control. level: 0.0 = 100%, positive = zoom in, negative = zoom out.
+  SetZoomLevel(double level) => ();
+  GetZoomLevel() => (double level);
+
+  // Execute JavaScript in the main frame. Requires --enable-owl-test-js.
+  // result: JSON-serialized return value ("" for undefined).
+  // result_type: 0=success, 1=exception. Auto-resolves Promises.
+  EvaluateJavaScript(string expression) => (string result, int32 result_type);
+
+  // Respond to a permission request. request_id must match a prior
+  // OnPermissionRequest. Invalid request_id is silently ignored (WARNING log).
+  RespondToPermissionRequest(uint64 request_id, PermissionStatus status);
+
+  // Respond to an SSL certificate error. error_id must match a prior OnSSLError.
+  // proceed=true: record cert exception via SSLHostStateDelegate, then reload.
+  // proceed=false: do not load, error page remains.
+  // Invalid error_id is silently ignored (WARNING log).
+  RespondToSSLError(uint64 error_id, bool proceed);
+
+  // Respond to an HTTP authentication challenge. auth_id must match a prior
+  // OnAuthRequired. username=null means cancel (no credentials).
+  // If the LoginDelegate has already been destroyed (e.g. user navigated away),
+  // the response is silently ignored (WARNING log).
+  RespondToAuthChallenge(uint64 auth_id, string? username, string? password);
+
+  // Execute a context menu action (Host-only operations like copy/paste).
+  // payload: optional string for actions that need extra data:
+  //   kOpenLinkInNewTab → link URL, kSearch → selection text.
+  //   Ignored for kCopy/kCut/kPaste/kSelectAll.
+  ExecuteContextMenuAction(ContextMenuAction action, uint32 menu_id,
+                           string? payload);
+
+  // 注册观察者
+  SetObserver(pending_remote<WebViewObserver> observer);
+
+  // Set active/inactive state for this WebView (multi-tab support).
+  // Active WebView receives input focus; inactive ones continue rendering
+  // but do not process input events.
+  SetActive(bool active);
+
+  // 异步关闭此 WebView
+  Close() => ();
+};

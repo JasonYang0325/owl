@@ -1,0 +1,27 @@
+// Copyright 2026 AntlerAI. All rights reserved.
+module owl.mojom;
+
+struct CookieDomain {
+  string domain;
+  int32 cookie_count;
+};
+
+struct StorageUsageEntry {
+  string origin;
+  int64 usage_bytes;
+};
+
+// Bitmask constants for ClearBrowsingData |data_types|.
+const uint32 kDataTypeCookies        = 0x01;
+const uint32 kDataTypeCache           = 0x02;
+const uint32 kDataTypeLocalStorage    = 0x04;
+const uint32 kDataTypeSessionStorage  = 0x08;
+const uint32 kDataTypeIndexedDB       = 0x10;
+
+interface StorageService {
+  GetCookieDomains() => (array<CookieDomain> domains);
+  DeleteCookiesForDomain(string domain) => (int32 deleted_count);
+  ClearBrowsingData(uint32 data_types, double start_time, double end_time)
+      => (bool success);
+  GetStorageUsage() => (array<StorageUsageEntry> usage);
+};
