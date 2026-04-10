@@ -94,6 +94,27 @@
 - [TEST-AI-SOCKET-CONTRACT] P2 | TODO | 0.5d | 无 | 为 AI / Socket 模块建立基础 contract tests
   范围: service 协议、socket 协议、异常输入处理
   验收: AI / IPC 不再完全游离于主测试面之外
+- [TEST-ARCH-GUIDANCE] P0 | TODO | 1d | 无 | 按风险分层固化全栈测试对齐
+  范围: 将 `docs/ARCHITECTURE.md` 的测试层级映射与 `docs/TESTING-ROADMAP.md` 的借鉴实践映射为 PR 强制执行清单
+  验收: 通过 `check_harness_quality.py` 与 `check_docs_consistency.py` 后，出现任一关键层缺失自动阻断
+- [TEST-UPGRADE-SMOKE] P0 | TODO | 0.5d | TEST-ARCH-GUIDANCE | 建立 Chromium 升级回归触发套件
+  范围: 以 Chromium 版本窗口为触发条件，新建 `chromium_compat_smoke` 任务列表（兼容性冒烟 + 关键 web_api）
+  验收: 升级窗口发布时，相关关键测试自动触发并输出失败归因日志
+- [TEST-FLAKY-TRIAGE] P0 | TODO | 1d | TEST-ARCH-GUIDANCE | 建立稳定可执行 flake 治理闭环
+  范围: 统一 flaky 标签定义，维护可过期黑名单，新增周报输出“连续抖动/超标比例”
+  验收: `run_harness_maintenance` 周期报告中显示每周新增/移除的 flaky 列表与解禁日期
+- [TEST-ARTIFACT-STD] P1 | TODO | 0.5d | TEST-ARCH-GUIDANCE | 统一失败标准化产物与重跑策略
+  范围: 所有可执行套件失败时强制产出日志、截图/trace（可用时）、case 指纹；业务失败禁止盲目重试
+  验收: 失败工单从 `harness_playbook.md` 可直接复现到固定命令与上下文
+- [TEST-UI-SMOKE-CORE] P1 | TODO | 1d | TEST-ARCH-GUIDANCE | 收敛 XCUITest 高价值冒烟集合
+  范围: 将 XCUITest 收敛为 ≤5 条核心用例（启动/导航/权限弹窗/下载/核心设置）
+  验收: 通过 `run_tests.sh xcuitest` 每次提交可获得稳定冒烟结果（非签名/GUI 时跳过）
+- [TEST-SECURITY-BASELINE] P1 | TODO | 1d | 测试框架与服务边界梳理 | 建立权限/ACL/同步高风险回归路径
+  范围: 增补权限模型、会话/同步隔离、可注入输入的负向用例；最小 fuzz/坏输入回归
+  验收: 关键风险域具备跨层 unit + integration 最低闭环
+- [TEST-LOCAL-RESILIENCE] P2 | TODO | 0.5d | TEST-FLAKY-TRIAGE | 统一测试依赖本地化与可复现素材
+  范围: 所有 UI 套件剥离外网依赖，统一本地 HTTP/fixture 与 data URI 资源模板
+  验收: `flow` 与 CI 日志中不再出现外网占位资源导致的随机失败
 
 ## Flow 基础设施
 
