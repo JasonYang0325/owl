@@ -13,6 +13,12 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_optional_text(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return read_text(path)
+
+
 def extract_default_e2e_mode(run_tests_text: str) -> str:
     match = re.search(r"^\s*e2e\)\s*\n(?P<body>.*?)^\s*;;\s*$", run_tests_text, flags=re.M | re.S)
     if not match:
@@ -83,6 +89,59 @@ def check_links_exist(markdown_text: str, base_dir: Path) -> List[str]:
     return findings
 
 
+def check_agent_coverage() -> List[str]:
+    script_path = Path(__file__).resolve()
+    repo_root = script_path.parents[2]
+
+    required_files = [
+        repo_root / "AGENT.md",
+        repo_root / "docs" / "AGENT.md",
+        repo_root / "docs" / "modules" / "AGENT.md",
+        repo_root / "bridge" / "AGENT.md",
+        repo_root / "client" / "AGENT.md",
+        repo_root / "host" / "AGENT.md",
+        repo_root / "mojom" / "AGENT.md",
+        repo_root / "owl-client-app" / "AGENT.md",
+        repo_root / "tools" / "AGENT.md",
+        repo_root / "third_party" / "AGENT.md",
+    ]
+
+    findings: List[str] = []
+    for path in required_files:
+        rel = path.relative_to(repo_root)
+        if not path.exists():
+            findings.append(f"missing required agent file: {rel}")
+            continue
+        if not path.is_file():
+            findings.append(f"required agent path exists but is not file: {rel}")
+
+    modules_dir = repo_root / "docs" / "modules"
+    module_list = [
+        p.relative_to(modules_dir)
+        for p in modules_dir.glob("module-[a-l]-*.md")
+        if p.is_file()
+    ]
+    if not module_list:
+        findings.append("docs/modules must contain module-* docs for A-L")
+
+    for module in module_list:
+        if "AGENT" in module.name.upper():
+            continue
+        module_path = modules_dir / module.name
+        text = module_path.read_text(encoding="utf-8")
+        if not text:
+            findings.append(f"module doc is empty: docs/modules/{module.name}")
+            continue
+        required_sections = ("## 目标", "## 验收标准", "## 测试计划", "## 文件清单")
+        if not all(section in text for section in required_sections):
+            missing = [section for section in required_sections if section not in text]
+            findings.append(
+                f"module doc docs/modules/{module.name} missing required sections: "+", ".join(missing)
+            )
+
+    return findings
+
+
 def main() -> int:
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[2]
@@ -95,20 +154,29 @@ def main() -> int:
     owl_test_cmd = repo_root / ".claude" / "commands" / "owl-test.md"
 
     findings: List[str] = []
+    warnings: List[str] = []
 
     run_tests_text = read_text(run_tests)
-    claude_text = read_text(claude)
+    claude_text = read_optional_text(claude)
     arch_text = read_text(arch)
     modules_text = read_text(modules)
     backlog_text = read_text(backlog)
-    owl_test_text = read_text(owl_test_cmd)
+    owl_test_text = read_optional_text(owl_test_cmd)
 
     default_e2e_mode = extract_default_e2e_mode(run_tests_text)
     if default_e2e_mode == "harness":
+        if not claude_text:
+            warnings.append("CLAUDE.md missing; optional e2e-gate skipped in export tree.")
+        if not owl_test_text:
+            warnings.append(".claude/commands/owl-test.md missing; optional e2e-gate skipped in export tree.")
+
+    if default_e2e_mode == "harness" and claude_text:
         if not re.search(r"默认.*harness", claude_text):
             findings.append("CLAUDE.md should state default e2e is harness.")
         if "默认 e2e（cpp + unit + pipeline）" in claude_text:
             findings.append("CLAUDE.md still mentions legacy default e2e path.")
+
+    if default_e2e_mode == "harness" and owl_test_text:
         if not re.search(r"`e2e`\s+—\s+harness（默认）", owl_test_text):
             findings.append(".claude/commands/owl-test.md should state e2e default is harness.")
         if "`e2e` — cpp + unit + pipeline（默认）" in owl_test_text:
@@ -130,6 +198,7 @@ def main() -> int:
             )
 
     findings.extend(check_links_exist(claude_text, repo_root))
+    findings.extend(check_agent_coverage())
 
     if findings:
         print("Docs consistency check failed:")
@@ -137,7 +206,12 @@ def main() -> int:
             print(f"- {item}")
         return 1
 
-    print("Docs consistency check passed.")
+    if warnings:
+        print("Docs consistency check passed with warnings:")
+        for item in warnings:
+            print(f"- {item}")
+    else:
+        print("Docs consistency check passed.")
     return 0
 
 
