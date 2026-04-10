@@ -112,6 +112,6 @@ OWL_EXPORT void OWLBridge_SetNetworkRequestCallback(OWLBridge_NetworkRequestCall
 | 修改 | `host/owl_web_contents.h/.cc` |
 | 修改 | `bridge/owl_bridge_api.h/.cc` |
 | 新增 | `owl-client-app/ViewModels/NetworkViewModel.swift` |
-| 新增 | `owl-client-app/Views/Panel/NetworkPanelView.swift` |
-| 新增 | `owl-client-app/Views/Panel/NetworkRow.swift` |
-| 修改 | `owl-client-app/Views/Panel/RightPanelContainer.swift`（添加 Network Tab） |
+| 新增 | `owl-client-app/Views/RightPanel/NetworkPanelView.swift` |
+| 新增 | `owl-client-app/Views/RightPanel/NetworkRow.swift` |
+| 修改 | `owl-client-app/Views/RightPanel/RightPanelContainer.swift`（添加 Network Tab） |

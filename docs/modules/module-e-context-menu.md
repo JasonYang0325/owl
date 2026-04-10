@@ -92,5 +92,5 @@ OWL_EXPORT void OWLBridge_ExecuteContextMenuAction(uint64_t menu_id, int32_t act
 | 修改 | `host/owl_real_web_contents.mm`（HandleContextMenu） |
 | 修改 | `host/owl_web_contents.h/.cc`（转发） |
 | 修改 | `bridge/owl_bridge_api.h/.cc` |
-| 新增 | `owl-client-app/Views/Menu/ContextMenuHandler.swift` |
-| 修改 | `client/OWLRemoteLayerView.mm`（接收回调，构建 NSMenu） |
+| 新增 | `owl-client-app/Services/ContextMenuHandler.swift` |
+| 修改 | `bridge/OWLBridgeWebView.mm`（接收 ContextMenu 回调，桥接到 Swift） |

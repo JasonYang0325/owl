@@ -96,6 +96,6 @@ OWL_EXPORT void OWLBridge_SetConsoleMessageCallback(OWLBridge_ConsoleMessageCall
 | 修改 | `host/owl_web_contents.h/.cc` |
 | 修改 | `bridge/owl_bridge_api.h/.cc` |
 | 新增 | `owl-client-app/ViewModels/ConsoleViewModel.swift` |
-| 新增 | `owl-client-app/Views/Panel/ConsolePanelView.swift` |
-| 新增 | `owl-client-app/Views/Panel/ConsoleRow.swift` |
-| 修改 | `owl-client-app/Views/Panel/RightPanelContainer.swift`（添加 Console Tab） |
+| 新增 | `owl-client-app/Views/RightPanel/ConsolePanelView.swift` |
+| 新增 | `owl-client-app/Views/RightPanel/ConsoleRow.swift` |
+| 修改 | `owl-client-app/Views/RightPanel/RightPanelContainer.swift`（添加 Console Tab） |
