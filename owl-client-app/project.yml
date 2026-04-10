@@ -1,0 +1,123 @@
+name: OWLBrowser
+options:
+  bundleIdPrefix: com.antlerai.owl
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+schemes:
+  OWLBrowser:
+    build:
+      targets:
+        OWLBrowser: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - OWLBrowserUITests
+
+  OWLBrowserUITests:
+    build:
+      targets:
+        OWLBrowser: all
+        OWLBrowserUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - OWLBrowserUITests
+
+targets:
+  OWLBrowser:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Models
+      - path: ViewModels
+      - path: Views
+      - path: Services
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.antlerai.owl.browser
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: OWLBrowser.entitlements
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: "TCB4ZP249K"
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+        ENABLE_HARDENED_RUNTIME: NO
+        FRAMEWORK_SEARCH_PATHS: /Users/xiaoyang/Project/chromium/src/out/owl-host
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks /Users/xiaoyang/Project/chromium/src/out/owl-host"
+        OTHER_SWIFT_FLAGS: "-F/Users/xiaoyang/Project/chromium/src/out/owl-host -package-name OWLBrowser"
+        OTHER_LDFLAGS:
+          - "-F/Users/xiaoyang/Project/chromium/src/out/owl-host"
+          - "-framework"
+          - "OWLBridge"
+    entitlements:
+      path: OWLBrowser.entitlements
+      properties:
+        com.apple.security.get-task-allow: true
+    postBuildScripts:
+      - name: "Embed OWLBridge + Chromium dylibs"
+        script: |
+          OWL_HOST_DIR="/Users/xiaoyang/Project/chromium/src/out/owl-host"
+          FRAMEWORK_DST="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+          mkdir -p "$FRAMEWORK_DST"
+
+          # Use Xcode-resolved cert hash when available; fall back to ad-hoc for non-signing builds.
+          # ENABLE_HARDENED_RUNTIME=NO disables library validation, so ad-hoc dylibs load fine.
+          SIGN_ID="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+          if [ -z "$EXPANDED_CODE_SIGN_IDENTITY" ]; then
+            echo "warning: EXPANDED_CODE_SIGN_IDENTITY is empty, using ad-hoc signing" >&2
+          fi
+
+          # 1. Copy + sign each Chromium dylib individually.
+          # (no --deep: deprecated since macOS 13, does not process bare .dylib files)
+          # cp stderr suppressed (some dylibs may not exist); codesign errors shown as warnings.
+          for dylib in "$OWL_HOST_DIR"/lib*.dylib; do
+            cp "$dylib" "$FRAMEWORK_DST/" 2>/dev/null || true
+            codesign --force --sign "$SIGN_ID" "$FRAMEWORK_DST/$(basename "$dylib")" || \
+              echo "warning: failed to sign $(basename "$dylib")" >&2
+          done
+
+          # 2. Copy OWLBridge.framework, sign binary first (deterministic symlink path), then bundle.
+          # Signing order matters: inner binary must be signed before the outer bundle.
+          cp -R "$OWL_HOST_DIR/OWLBridge.framework" "$FRAMEWORK_DST/"
+          FW="$FRAMEWORK_DST/OWLBridge.framework"
+          FW_BIN="$FW/OWLBridge"
+          if [ ! -f "$FW_BIN" ]; then
+            echo "error: OWLBridge binary not found at $FW_BIN" >&2
+            exit 1
+          fi
+          codesign --force --sign "$SIGN_ID" "$FW_BIN"
+          codesign --force --sign "$SIGN_ID" "$FW"
+
+  OWLBrowserUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+        excludes:
+          - "**/*.entitlements"
+    dependencies:
+      - target: OWLBrowser
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.antlerai.owl.browser.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: "TCB4ZP249K"
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+        ENABLE_HARDENED_RUNTIME: NO
+        FRAMEWORK_SEARCH_PATHS: ""
+        OTHER_LDFLAGS: ""
+        OTHER_SWIFT_FLAGS: ""
