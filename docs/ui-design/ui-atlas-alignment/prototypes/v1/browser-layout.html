@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OWL Browser — Atlas Style Alignment Prototype</title>
+<style>
+  :root {
+    /* OWL Design Tokens — Light */
+    --surface-primary: #FFFFFF;
+    --surface-secondary: #F5F5F5;
+    --accent-primary: #0A84FF;
+    --text-primary: #000000;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #C7C7CC;
+    --border: #E5E5EA;
+    --radius-small: 6px;
+    --radius-medium: 8px;
+    --radius-large: 10px;
+    --top-bar-height: 48px;
+    --sidebar-width: 200px;
+    --toolbar-height: 40px;
+    --tab-height: 36px;
+    --tab-active-bg: #F5F5F5;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-primary: #1A1A1A;
+      --surface-secondary: #2A2A2A;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --text-tertiary: #636366;
+      --border: #38383A;
+      --tab-active-bg: #333333;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ===== TOP BAR ===== */
+  .top-bar {
+    height: var(--top-bar-height);
+    background: var(--surface-primary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .window-controls {
+    width: 72px;
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    gap: 8px;
+  }
+  .window-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+  }
+  .dot-red { background: #FF5F57; }
+  .dot-yellow { background: #FEBC2E; }
+  .dot-green { background: #28C840; }
+
+  .toggle-btn {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--text-secondary);
+    font-size: 16px; cursor: pointer;
+    border-radius: var(--radius-small);
+    margin-right: 4px;
+  }
+  .toggle-btn:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+  }
+
+  .nav-buttons {
+    display: flex; gap: 4px; padding: 0 8px;
+  }
+  .nav-btn {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--text-secondary); font-size: 14px;
+    cursor: pointer; border-radius: var(--radius-small);
+  }
+  .nav-btn:hover { background: var(--surface-secondary); }
+  .nav-btn.disabled { color: var(--text-tertiary); cursor: default; }
+
+  .address-bar-wrapper {
+    flex: 1; display: flex; justify-content: center; padding: 0 16px;
+  }
+  .address-bar {
+    max-width: 600px; width: 100%;
+    height: 32px; background: var(--surface-secondary);
+    border-radius: var(--radius-large);
+    display: flex; align-items: center;
+    padding: 0 12px; font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* ===== MAIN AREA ===== */
+  .main-area {
+    flex: 1; display: flex; overflow: hidden;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: var(--sidebar-width);
+    background: var(--surface-primary);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  /* Sidebar Top Fixed */
+  .sidebar-top {
+    padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .sidebar-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 0; border: none; background: transparent;
+    color: var(--text-secondary); font-size: 13px;
+    cursor: pointer; width: 100%;
+    text-align: left;
+  }
+  .sidebar-btn:hover { color: var(--text-primary); }
+  .sidebar-btn .icon { font-size: 14px; width: 16px; text-align: center; }
+  .sidebar-btn.active { color: var(--text-primary); font-weight: 500; }
+  .sidebar-btn.active .icon { color: var(--accent-primary); }
+
+  .sidebar-divider {
+    height: 1px; background: var(--border);
+    margin: 4px 10px;
+  }
+
+  /* Tab List */
+  .tab-list {
+    flex: 1; overflow-y: auto; padding: 4px 6px;
+  }
+  .tab-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px; height: var(--tab-height);
+    border-radius: var(--radius-medium);
+    cursor: pointer; position: relative;
+  }
+  .tab-row:hover { background: var(--surface-secondary); opacity: 0.5; }
+  .tab-row:hover { background: color-mix(in srgb, var(--surface-secondary) 50%, transparent); }
+  .tab-row.active { background: var(--tab-active-bg); }
+  .tab-favicon {
+    width: 16px; height: 16px; border-radius: 4px;
+    background: var(--text-tertiary); flex-shrink: 0;
+  }
+  .tab-title {
+    font-size: 13px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    color: var(--text-primary); flex: 1;
+  }
+  .tab-close {
+    width: 20px; height: 20px;
+    display: none; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--text-secondary); font-size: 10px; cursor: pointer;
+  }
+  .tab-row:hover .tab-close { display: flex; }
+
+  /* Sidebar Bottom */
+  .sidebar-bottom {
+    height: var(--toolbar-height);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 10px;
+  }
+  .settings-btn {
+    display: flex; align-items: center; gap: 6px;
+    border: none; background: transparent;
+    color: var(--text-secondary); font-size: 13px;
+    cursor: pointer;
+  }
+  .settings-btn:hover { color: var(--text-primary); }
+  .settings-btn .icon { font-size: 15px; }
+
+  /* ===== CONTENT AREA ===== */
+  .content-area {
+    flex: 1;
+    background: var(--surface-primary); /* KEY FIX: opaque background */
+    position: relative;
+  }
+  .content-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+    color: var(--text-secondary); font-size: 14px;
+  }
+  .content-placeholder .logo {
+    width: 48px; height: 48px;
+    background: var(--accent-primary);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 24px; font-weight: bold;
+  }
+
+  /* State labels */
+  .state-label {
+    position: absolute; top: 8px; right: 8px;
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 4px; font-weight: 500;
+  }
+  .state-light { background: #E3F2FD; color: #1565C0; }
+  .state-dark { background: #333; color: #90CAF9; }
+
+  /* ===== COMPARISON LAYOUT ===== */
+  .comparison {
+    display: flex; height: 100vh;
+  }
+  .comparison-panel {
+    flex: 1; display: flex; flex-direction: column;
+    border-right: 2px solid var(--accent-primary);
+  }
+  .comparison-panel:last-child { border-right: none; }
+  .comparison-label {
+    text-align: center; padding: 4px;
+    font-size: 11px; font-weight: 600;
+    background: var(--accent-primary); color: white;
+  }
+</style>
+</head>
+<body>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="window-controls">
+      <div class="window-dot dot-red"></div>
+      <div class="window-dot dot-yellow"></div>
+      <div class="window-dot dot-green"></div>
+    </div>
+
+    <!-- NEW: Sidebar Toggle -->
+    <button class="toggle-btn" title="Toggle Sidebar" id="sidebarToggle">
+      &#9776;<!-- sidebar icon approximation -->
+    </button>
+
+    <div class="nav-buttons">
+      <button class="nav-btn disabled">&lsaquo;</button>
+      <button class="nav-btn disabled">&rsaquo;</button>
+      <button class="nav-btn">&#8635;</button>
+    </div>
+
+    <div class="address-bar-wrapper">
+      <div class="address-bar">baidu.com</div>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <!-- Top Fixed Area -->
+      <div class="sidebar-top">
+        <button class="sidebar-btn">
+          <span class="icon">+</span>
+          <span>添加标签页</span>
+        </button>
+        <button class="sidebar-btn active" id="bookmarkBtn">
+          <span class="icon">&#128278;</span>
+          <span>书签</span>
+        </button>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Tab List -->
+      <div class="tab-list">
+        <div class="tab-row active">
+          <div class="tab-favicon"></div>
+          <span class="tab-title">百度一下，你就知道</span>
+          <button class="tab-close">&times;</button>
+        </div>
+        <div class="tab-row">
+          <div class="tab-favicon"></div>
+          <span class="tab-title">Google</span>
+          <button class="tab-close">&times;</button>
+        </div>
+        <div class="tab-row">
+          <div class="tab-favicon"></div>
+          <span class="tab-title">GitHub</span>
+          <button class="tab-close">&times;</button>
+        </div>
+        <div class="tab-row">
+          <div class="tab-favicon"></div>
+          <span class="tab-title">新标签页</span>
+          <button class="tab-close">&times;</button>
+        </div>
+      </div>
+
+      <!-- Bottom Toolbar -->
+      <div class="sidebar-bottom">
+        <button class="settings-btn">
+          <span class="icon">&#9881;</span>
+          <span>设置</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area">
+      <div class="content-placeholder">
+        <div class="logo">O</div>
+        <span>网页内容区域 — 不透明背景</span>
+        <span style="font-size:12px; color:var(--text-tertiary)">
+          OWL.surfacePrimary 作为兜底背景，导航时不再透明漏底
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sidebar toggle demo
+    const sidebar = document.getElementById('sidebar');
+    const toggle = document.getElementById('sidebarToggle');
+    let sidebarVisible = true;
+    toggle.addEventListener('click', () => {
+      sidebarVisible = !sidebarVisible;
+      sidebar.style.display = sidebarVisible ? 'flex' : 'none';
+    });
+
+    // Bookmark button toggle demo
+    const bookmarkBtn = document.getElementById('bookmarkBtn');
+    bookmarkBtn.addEventListener('click', () => {
+      bookmarkBtn.classList.toggle('active');
+    });
+
+    // Tab selection demo
+    document.querySelectorAll('.tab-row').forEach(row => {
+      row.addEventListener('click', () => {
+        document.querySelectorAll('.tab-row').forEach(r => r.classList.remove('active'));
+        row.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OWL Navigation - Progress Bar States</title>
+<style>
+  :root {
+    --surface-primary: #FFFFFF;
+    --surface-secondary: #F5F5F5;
+    --accent-primary: #0A84FF;
+    --text-primary: #000000;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #C7C7CC;
+    --border: #E5E5EA;
+    --warning: #FF9500;
+    --radius-small: 6px;
+    --radius-large: 10px;
+    --top-bar-height: 48px;
+    --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font-body); background: #E8E8E8; padding: 24px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: 24px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .browser-frame {
+    width: 700px; margin: 0 auto 32px; background: var(--surface-primary);
+    border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  }
+  .title-bar {
+    height: 38px; background: linear-gradient(180deg, #EBEBEB, #D6D6D6);
+    display: flex; align-items: center; padding: 0 12px;
+  }
+  .traffic-lights { display: flex; gap: 8px; }
+  .traffic-light { width: 12px; height: 12px; border-radius: 50%; }
+  .tl-close { background: #FF5F57; }
+  .tl-min { background: #FEBD2F; }
+  .tl-max { background: #28C840; }
+  .top-bar {
+    height: var(--top-bar-height); display: flex; align-items: center;
+    padding: 0 12px; gap: 8px; background: var(--surface-primary);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-btn {
+    width: 28px; height: 28px; border: none; background: transparent;
+    border-radius: var(--radius-small); cursor: pointer; font-size: 16px;
+    color: var(--text-secondary); display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btn:hover { background: var(--surface-secondary); }
+  .nav-btn.disabled { color: var(--text-tertiary); cursor: default; }
+  .address-bar {
+    flex: 1; max-width: 500px; height: 32px; background: var(--surface-secondary);
+    border-radius: var(--radius-large); display: flex; align-items: center;
+    padding: 0 10px; position: relative; overflow: hidden;
+  }
+  .lock-icon { font-size: 12px; color: var(--text-tertiary); margin-right: 6px; }
+  .address-text { font-size: 13px; color: var(--text-primary); flex: 1; }
+  .progress-track {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent-primary); border-radius: 0 0 0 var(--radius-large);
+    transition: width 0.3s ease-in-out, opacity 0.3s ease-out;
+  }
+  .content-area {
+    height: 200px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); font-size: 13px; background: var(--surface-primary);
+  }
+  .slow-banner {
+    height: 28px; background: rgba(255, 149, 0, 0.1); display: flex;
+    align-items: center; padding: 0 12px; gap: 6px;
+    font-size: 12px; color: var(--warning);
+  }
+  .state-label {
+    position: absolute; top: 4px; right: 8px; font-size: 10px;
+    color: var(--accent-primary); font-weight: 600; background: rgba(10,132,255,0.1);
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .browser-frame { position: relative; }
+</style>
+</head>
+<body>
+
+<h2>State 1: Idle (No Loading)</h2>
+<div class="browser-frame">
+  <div class="state-label">progress = 0</div>
+  <div class="title-bar">
+    <div class="traffic-lights">
+      <div class="traffic-light tl-close"></div>
+      <div class="traffic-light tl-min"></div>
+      <div class="traffic-light tl-max"></div>
+    </div>
+  </div>
+  <div class="top-bar">
+    <button class="nav-btn disabled">◀</button>
+    <button class="nav-btn disabled">▶</button>
+    <button class="nav-btn">↻</button>
+    <div class="address-bar">
+      <span class="lock-icon">🔒</span>
+      <span class="address-text">example.com</span>
+    </div>
+  </div>
+  <div class="content-area">Page content here</div>
+</div>
+
+<h2>State 2: Loading Started (progress ≈ 0.1 → 0.5)</h2>
+<div class="browser-frame">
+  <div class="state-label">progress = 0.3 (fake progress)</div>
+  <div class="title-bar">
+    <div class="traffic-lights">
+      <div class="traffic-light tl-close"></div>
+      <div class="traffic-light tl-min"></div>
+      <div class="traffic-light tl-max"></div>
+    </div>
+  </div>
+  <div class="top-bar">
+    <button class="nav-btn disabled">◀</button>
+    <button class="nav-btn disabled">▶</button>
+    <button class="nav-btn">✕</button>
+    <div class="address-bar">
+      <span class="lock-icon">🔒</span>
+      <span class="address-text" style="color: var(--text-secondary)">loading.example.com</span>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: 30%;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="content-area" style="color: var(--text-tertiary)">Loading...</div>
+</div>
+
+<h2>State 3: Committed (progress ≈ 0.6 → 0.9)</h2>
+<div class="browser-frame">
+  <div class="state-label">progress = 0.7 (fake progress)</div>
+  <div class="title-bar">
+    <div class="traffic-lights">
+      <div class="traffic-light tl-close"></div>
+      <div class="traffic-light tl-min"></div>
+      <div class="traffic-light tl-max"></div>
+    </div>
+  </div>
+  <div class="top-bar">
+    <button class="nav-btn">◀</button>
+    <button class="nav-btn disabled">▶</button>
+    <button class="nav-btn">✕</button>
+    <div class="address-bar">
+      <span class="lock-icon">🔒</span>
+      <span class="address-text">example.com/page</span>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: 70%;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="content-area">Page partially loaded...</div>
+</div>
+
+<h2>State 4: Slow Loading (5s+ with banner)</h2>
+<div class="browser-frame">
+  <div class="state-label">progress = 0.4 + slow banner</div>
+  <div class="title-bar">
+    <div class="traffic-lights">
+      <div class="traffic-light tl-close"></div>
+      <div class="traffic-light tl-min"></div>
+      <div class="traffic-light tl-max"></div>
+    </div>
+  </div>
+  <div class="top-bar">
+    <button class="nav-btn disabled">◀</button>
+    <button class="nav-btn disabled">▶</button>
+    <button class="nav-btn">✕</button>
+    <div class="address-bar">
+      <span class="lock-icon">🔒</span>
+      <span class="address-text" style="color: var(--text-secondary)">slow-server.example.com</span>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: 40%;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="slow-banner">
+    <span>⏳</span>
+    <span>加载较慢...</span>
+  </div>
+  <div class="content-area" style="height: 172px;">Loading...</div>
+</div>
+
+<h2>State 5: Complete (progress = 1.0, fading out)</h2>
+<div class="browser-frame">
+  <div class="state-label">progress = 1.0 → fade out</div>
+  <div class="title-bar">
+    <div class="traffic-lights">
+      <div class="traffic-light tl-close"></div>
+      <div class="traffic-light tl-min"></div>
+      <div class="traffic-light tl-max"></div>
+    </div>
+  </div>
+  <div class="top-bar">
+    <button class="nav-btn">◀</button>
+    <button class="nav-btn disabled">▶</button>
+    <button class="nav-btn">↻</button>
+    <div class="address-bar">
+      <span class="lock-icon">🔒</span>
+      <span class="address-text">example.com/page</span>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: 100%; opacity: 0.4;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="content-area">Page fully loaded</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookmarks UI Prototype — OWL Browser</title>
+<style>
+  :root {
+    --surface-primary: #FFFFFF;
+    --surface-secondary: #F5F5F5;
+    --accent-primary: #0A84FF;
+    --accent-secondary: #34C759;
+    --text-primary: #000000;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #C7C7CC;
+    --border: #E5E5EA;
+    --error: #FF3B30;
+    --radius-small: 6px;
+    --radius-medium: 8px;
+    --radius-large: 10px;
+    --radius-card: 12px;
+    --sidebar-width: 140px;
+    --topbar-height: 48px;
+    --tab-item-height: 36px;
+    --toolbar-height: 40px;
+    --bookmark-row-height: 44px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: #E8E8E8;
+    color: var(--text-primary);
+    padding: 40px;
+  }
+
+  h2.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 32px 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  h2.section-title:first-child { margin-top: 0; }
+
+  .component-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  /* ===== Address Bar Components ===== */
+
+  .address-bar-demo {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 600px;
+  }
+
+  .address-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    max-width: 600px;
+    background: var(--surface-secondary);
+    border-radius: var(--radius-large);
+    padding: 6px 12px;
+    border: 2px solid transparent;
+  }
+
+  .address-bar.focused {
+    border-color: var(--accent-primary);
+    background: var(--surface-primary);
+  }
+
+  .address-bar .lock-icon {
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .address-bar .url-input {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-primary);
+    border: none;
+    background: transparent;
+    outline: none;
+    min-width: 0;
+  }
+
+  .address-bar .url-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .address-bar .zoom-indicator {
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    padding: 2px 6px;
+    background: var(--surface-primary);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .star-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+    font-size: 15px;
+    transition: all 0.15s ease;
+  }
+
+  .star-button.not-bookmarked { color: var(--text-secondary); }
+  .star-button.not-bookmarked:hover { color: var(--text-primary); }
+  .star-button.bookmarked { color: var(--accent-primary); }
+  .star-button.bookmarked:hover { color: #0070E0; }
+  .star-button.disabled { color: var(--text-tertiary); opacity: 0.5; cursor: default; }
+  .star-button.loading { opacity: 0.5; cursor: default; pointer-events: none; }
+
+  /* ===== Sidebar Components ===== */
+
+  .sidebar-demo {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .sidebar {
+    width: var(--sidebar-width);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 420px;
+    border: 1px solid var(--border);
+  }
+
+  .sidebar-header {
+    height: var(--tab-item-height);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .bookmark-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .bookmark-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--bookmark-row-height);
+    padding: 0 8px 0 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .bookmark-row:hover {
+    background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);
+  }
+
+  .bookmark-row:active {
+    background: color-mix(in srgb, var(--surface-secondary) 50%, transparent);
+  }
+
+  .favicon-placeholder {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-small);
+    background: var(--surface-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .bookmark-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  .bookmark-title {
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bookmark-domain {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px;
+  }
+
+  .empty-state .empty-icon {
+    font-size: 32px;
+    color: var(--text-tertiary);
+  }
+
+  .empty-state .empty-title {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .empty-state .empty-subtitle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* Sidebar Toolbar */
+  .sidebar-toolbar {
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .toolbar-button {
+    flex: 1;
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--text-secondary);
+    transition: color 0.15s;
+  }
+
+  .toolbar-button:hover {
+    color: var(--text-primary);
+  }
+
+  .toolbar-button.active {
+    color: var(--accent-primary);
+  }
+
+  /* Context Menu */
+  .context-menu-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .context-menu {
+    position: absolute;
+    top: 32px;
+    left: 20px;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-medium);
+    padding: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    min-width: 140px;
+    z-index: 10;
+  }
+
+  .context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .context-menu-item.destructive {
+    color: var(--error);
+  }
+
+  .context-menu-item:hover {
+    background: rgba(0,0,0,0.06);
+  }
+
+  /* Swipe Action */
+  .swipe-demo {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .swipe-action {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 60px;
+    background: var(--error);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 13px;
+  }
+
+  .swipe-demo .bookmark-row {
+    transform: translateX(-60px);
+    background: var(--surface-primary);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Browser Window Mock */
+  .browser-window {
+    display: flex;
+    width: 800px;
+    height: 500px;
+    background: var(--surface-primary);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  }
+
+  .browser-sidebar {
+    width: var(--sidebar-width);
+    background: rgba(245,245,245,0.85);
+    backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+
+  .browser-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .browser-topbar {
+    height: var(--topbar-height);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .browser-topbar .nav-buttons {
+    display: flex;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+
+  .browser-topbar .address-bar {
+    flex: 1;
+  }
+
+  .browser-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FAFAFA;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Section 1: Address Bar Star Button States ===== -->
+<h2 class="section-title">1. Address Bar — Star Button States</h2>
+
+<div class="address-bar-demo">
+  <div>
+    <div class="component-label">Default (Not Bookmarked)</div>
+    <div class="address-bar">
+      <span class="lock-icon">&#x1F512;</span>
+      <span class="url-input" style="color: var(--text-primary)">github.com/anthropics/claude-code</span>
+      <button class="star-button not-bookmarked" title="添加到书签">&#9734;</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="component-label">Bookmarked (Star Filled, Blue)</div>
+    <div class="address-bar">
+      <span class="lock-icon">&#x1F512;</span>
+      <span class="url-input" style="color: var(--text-primary)">github.com/anthropics/claude-code</span>
+      <button class="star-button bookmarked" title="从书签移除">&#9733;</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="component-label">With Zoom + Bookmarked</div>
+    <div class="address-bar">
+      <span class="lock-icon">&#x1F512;</span>
+      <span class="url-input" style="color: var(--text-primary)">developer.apple.com/documentation/swiftui</span>
+      <span class="zoom-indicator">125%</span>
+      <button class="star-button bookmarked" title="从书签移除">&#9733;</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="component-label">Disabled (Empty URL / New Tab)</div>
+    <div class="address-bar focused">
+      <span class="url-input" style="color: var(--text-tertiary)">搜索或输入 URL</span>
+      <button class="star-button disabled" title="无法添加书签">&#9734;</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="component-label">Loading (Adding Bookmark...)</div>
+    <div class="address-bar">
+      <span class="lock-icon">&#x1F512;</span>
+      <span class="url-input" style="color: var(--text-primary)">news.ycombinator.com</span>
+      <button class="star-button not-bookmarked loading" title="添加中...">&#9734;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Section 2: Sidebar Bookmark List ===== -->
+<h2 class="section-title">2. Sidebar — Bookmark List States</h2>
+
+<div class="sidebar-demo">
+  <!-- Normal state with bookmarks -->
+  <div>
+    <div class="component-label">Normal (With Bookmarks)</div>
+    <div class="sidebar">
+      <div class="sidebar-header"><span>书签</span></div>
+      <div class="bookmark-list">
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">G</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">GitHub</div>
+            <div class="bookmark-domain">github.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">A</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Apple Developer</div>
+            <div class="bookmark-domain">developer.apple.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">H</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Hacker News</div>
+            <div class="bookmark-domain">news.ycombinator.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">W</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Wikipedia - Bookmar...</div>
+            <div class="bookmark-domain">en.wikipedia.org</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">S</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Stack Overflow</div>
+            <div class="bookmark-domain">stackoverflow.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">R</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Reddit</div>
+            <div class="bookmark-domain">reddit.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">Y</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">YouTube</div>
+            <div class="bookmark-domain">youtube.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">N</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title" style="line-height: 28px;">news.ycombinator.com/item?id=123</div>
+            <!-- Title == URL: domain row hidden, title vertically centered -->
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-toolbar">
+        <button class="toolbar-button active" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div>
+    <div class="component-label">Empty State (No Bookmarks)</div>
+    <div class="sidebar">
+      <div class="sidebar-header"><span>书签</span></div>
+      <div class="empty-state">
+        <span class="empty-icon">&#9734;</span>
+        <span class="empty-title">暂无书签</span>
+        <span class="empty-subtitle">点击地址栏的 ☆<br>即可收藏当前网页</span>
+      </div>
+      <div class="sidebar-toolbar">
+        <button class="toolbar-button active" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu state -->
+  <div>
+    <div class="component-label">Context Menu (Delete)</div>
+    <div class="sidebar context-menu-wrapper">
+      <div class="sidebar-header"><span>书签</span></div>
+      <div class="bookmark-list">
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">G</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">GitHub</div>
+            <div class="bookmark-domain">github.com</div>
+          </div>
+        </div>
+        <div class="bookmark-row" style="background: rgba(0,0,0,0.06);">
+          <div class="favicon-placeholder">A</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Apple Developer</div>
+            <div class="bookmark-domain">developer.apple.com</div>
+          </div>
+        </div>
+        <div class="context-menu">
+          <div class="context-menu-item destructive">
+            <span>&#x1F5D1;</span>
+            <span>删除书签</span>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">H</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Hacker News</div>
+            <div class="bookmark-domain">news.ycombinator.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-toolbar">
+        <button class="toolbar-button active" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Swipe delete state -->
+  <div>
+    <div class="component-label">Swipe Delete Action</div>
+    <div class="sidebar">
+      <div class="sidebar-header"><span>书签</span></div>
+      <div class="bookmark-list">
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">G</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">GitHub</div>
+            <div class="bookmark-domain">github.com</div>
+          </div>
+        </div>
+        <div class="swipe-demo" style="height: var(--bookmark-row-height);">
+          <div class="swipe-action">
+            <span>&#x1F5D1; 删除</span>
+          </div>
+          <div class="bookmark-row">
+            <div class="favicon-placeholder">A</div>
+            <div class="bookmark-text">
+              <div class="bookmark-title">Apple Developer</div>
+              <div class="bookmark-domain">developer.apple.com</div>
+            </div>
+          </div>
+        </div>
+        <div class="bookmark-row">
+          <div class="favicon-placeholder">H</div>
+          <div class="bookmark-text">
+            <div class="bookmark-title">Hacker News</div>
+            <div class="bookmark-domain">news.ycombinator.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-toolbar">
+        <button class="toolbar-button active" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Section 3: Full Browser Window Mock ===== -->
+<h2 class="section-title">3. Full Browser Window — Bookmarks Active</h2>
+
+<div class="browser-window">
+  <div class="browser-sidebar">
+    <div class="sidebar-header"><span>书签</span></div>
+    <div class="bookmark-list" style="flex:1; overflow-y:auto;">
+      <div class="bookmark-row">
+        <div class="favicon-placeholder">G</div>
+        <div class="bookmark-text">
+          <div class="bookmark-title">GitHub</div>
+          <div class="bookmark-domain">github.com</div>
+        </div>
+      </div>
+      <div class="bookmark-row">
+        <div class="favicon-placeholder">A</div>
+        <div class="bookmark-text">
+          <div class="bookmark-title">Apple Developer</div>
+          <div class="bookmark-domain">developer.apple.com</div>
+        </div>
+      </div>
+      <div class="bookmark-row">
+        <div class="favicon-placeholder">H</div>
+        <div class="bookmark-text">
+          <div class="bookmark-title">Hacker News</div>
+          <div class="bookmark-domain">news.ycombinator.com</div>
+        </div>
+      </div>
+      <div class="bookmark-row">
+        <div class="favicon-placeholder">W</div>
+        <div class="bookmark-text">
+          <div class="bookmark-title">Wikipedia</div>
+          <div class="bookmark-domain">wikipedia.org</div>
+        </div>
+      </div>
+      <div class="bookmark-row">
+        <div class="favicon-placeholder">S</div>
+        <div class="bookmark-text">
+          <div class="bookmark-title">Stack Overflow</div>
+          <div class="bookmark-domain">stackoverflow.com</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-toolbar">
+      <button class="toolbar-button active">&#x1F516;</button>
+      <button class="toolbar-button">&#x1F4AC;</button>
+      <button class="toolbar-button">&#x1F916;</button>
+      <button class="toolbar-button">&#x2699;</button>
+    </div>
+  </div>
+  <div class="browser-main">
+    <div class="browser-topbar">
+      <div class="nav-buttons">
+        <span>&#x25C0;</span>
+        <span>&#x25B6;</span>
+      </div>
+      <div class="address-bar" style="flex:1;">
+        <span class="lock-icon">&#x1F512;</span>
+        <span class="url-input">github.com/anthropics/claude-code</span>
+        <button class="star-button bookmarked">&#9733;</button>
+      </div>
+    </div>
+    <div class="browser-content">
+      <span>网页内容区域</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Section 4: Toolbar States ===== -->
+<h2 class="section-title">4. Sidebar Toolbar — Button States</h2>
+
+<div style="display: flex; gap: 24px;">
+  <div>
+    <div class="component-label">Tabs Mode (Default)</div>
+    <div style="width: var(--sidebar-width); border: 1px solid var(--border); border-radius: var(--radius-medium); overflow: hidden;">
+      <div class="sidebar-toolbar" style="border-top: none;">
+        <button class="toolbar-button" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="component-label">Bookmarks Mode (Bookmark Active)</div>
+    <div style="width: var(--sidebar-width); border: 1px solid var(--border); border-radius: var(--radius-medium); overflow: hidden;">
+      <div class="sidebar-toolbar" style="border-top: none;">
+        <button class="toolbar-button active" title="书签">&#x1F516;</button>
+        <button class="toolbar-button" title="AI Chat">&#x1F4AC;</button>
+        <button class="toolbar-button" title="Agent">&#x1F916;</button>
+        <button class="toolbar-button" title="设置">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
