@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 def read_text(path: Path) -> str:
@@ -89,7 +89,90 @@ def check_links_exist(markdown_text: str, base_dir: Path) -> List[str]:
     return findings
 
 
-def check_agent_coverage() -> List[str]:
+def extract_section(text: str, heading: str) -> str:
+    heading_re = re.compile(rf"^##+\s+{re.escape(heading)}\s*$")
+    lines = text.splitlines()
+
+    start = None
+    for index, line in enumerate(lines):
+        if heading_re.match(line.strip()):
+            start = index + 1
+            break
+    if start is None:
+        return ""
+
+    end = len(lines)
+    heading_boundary_re = re.compile(r"^##+\s+")
+    for index in range(start, len(lines)):
+        if heading_boundary_re.match(lines[index]):
+            end = index
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def split_file_token_candidates(token: str) -> List[str]:
+    cleaned = token.strip().strip("`").strip()
+    cleaned = re.split(r"[（(\\[]", cleaned)[0].strip()
+    if not cleaned or " " in cleaned:
+        return []
+    if cleaned.startswith(("http://", "https://", "#")):
+        return []
+
+    pair_match = re.match(r"^(?P<base>.+)\.(?P<ext1>[A-Za-z0-9]+)/(?:\.(?P<ext2>[A-Za-z0-9]+))$", cleaned)
+    if pair_match:
+        base = pair_match.group("base")
+        ext1 = pair_match.group("ext1")
+        ext2 = pair_match.group("ext2")
+        return [f"{base}.{ext1}", f"{base}.{ext2}"]
+
+    return [cleaned]
+
+
+def extract_file_candidates(section: str) -> List[str]:
+    candidates: List[str] = []
+
+    for link in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", section):
+        candidates.extend(split_file_token_candidates(link.group(1)))
+
+    for code in re.findall(r"`([^`]*)`", section):
+        candidates.extend(split_file_token_candidates(code))
+
+    for file_ref in re.findall(r"(?<!`)([\\w./-]+\\.[A-Za-z0-9]+)(?!`)", section):
+        candidates.extend(split_file_token_candidates(file_ref))
+
+    return sorted(set(candidates))
+
+
+def validate_module_file_list(
+    module_path: Path, module_name: str, module_status: str, repo_root: Path
+) -> Tuple[List[str], List[str]]:
+    findings: List[str] = []
+    warnings: List[str] = []
+    text = module_path.read_text(encoding="utf-8")
+
+    section = extract_section(text, "文件清单")
+    if not section:
+        findings.append(f"module doc docs/modules/{module_name} missing required sections: ## 文件清单")
+        return findings, warnings
+
+    candidates = extract_file_candidates(section)
+    if not candidates:
+        findings.append(f"module doc docs/modules/{module_name} has empty 文件清单 or no file paths.")
+        return findings, warnings
+
+    for target in candidates:
+        path = (repo_root / target).resolve()
+        if not path.exists():
+            if module_status == "done":
+                findings.append(f"module doc docs/modules/{module_name} references missing file: {target}")
+            else:
+                warnings.append(
+                    f"module doc docs/modules/{module_name} references missing file: {target} (pending module)"
+                )
+    return findings, warnings
+
+
+def check_agent_coverage(module_status: Dict[str, str]) -> Tuple[List[str], List[str]]:
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[2]
 
@@ -107,6 +190,7 @@ def check_agent_coverage() -> List[str]:
     ]
 
     findings: List[str] = []
+    warnings: List[str] = []
     for path in required_files:
         rel = path.relative_to(repo_root)
         if not path.exists():
@@ -128,6 +212,9 @@ def check_agent_coverage() -> List[str]:
         if "AGENT" in module.name.upper():
             continue
         module_path = modules_dir / module.name
+        module_match = re.match(r"module-([A-L])-", module.name)
+        module_id = module_match.group(1) if module_match else "?"
+        module_state = module_status.get(module_id, "pending")
         text = module_path.read_text(encoding="utf-8")
         if not text:
             findings.append(f"module doc is empty: docs/modules/{module.name}")
@@ -138,8 +225,12 @@ def check_agent_coverage() -> List[str]:
             findings.append(
                 f"module doc docs/modules/{module.name} missing required sections: "+", ".join(missing)
             )
+            continue
+        find_f, warn_f = validate_module_file_list(module_path, module.name, module_state, repo_root)
+        findings.extend(find_f)
+        warnings.extend(warn_f)
 
-    return findings
+    return findings, warnings
 
 
 def main() -> int:
@@ -198,7 +289,9 @@ def main() -> int:
             )
 
     findings.extend(check_links_exist(claude_text, repo_root))
-    findings.extend(check_agent_coverage())
+    module_findings, module_warnings = check_agent_coverage(module_status)
+    findings.extend(module_findings)
+    warnings.extend(module_warnings)
 
     if findings:
         print("Docs consistency check failed:")
